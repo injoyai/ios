@@ -3,6 +3,15 @@ package ios
 import "io"
 
 type (
+	Reader interface {
+		//Reader为这三种类型 [io.Reader|AReader|MReader] 如何用泛型实现?
+	}
+
+	ReadeWriteCloser interface {
+		Reader
+		io.WriteCloser
+	}
+
 	Closer interface {
 		io.Closer
 		Closed() bool
@@ -46,6 +55,12 @@ type (
 		MReader
 		io.Writer
 		io.Closer
+	}
+
+	Runner interface {
+		io.Closer
+		Run() error
+		Running() bool
 	}
 )
 

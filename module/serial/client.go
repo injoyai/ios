@@ -9,13 +9,13 @@ type (
 )
 
 func Dial(cfg *Config) (*Client, error) {
-	serial, err := serial.OpenPort(cfg)
+	port, err := serial.Open(cfg)
 	if err != nil {
 		return nil, err
 	}
-	return &Client{serial.Port}
+	return &Client{port}, nil
 }
 
 type Client struct {
-	*serial.Port
+	serial.Port
 }
