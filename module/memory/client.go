@@ -10,7 +10,7 @@ import (
 )
 
 func NewDial(key string) ios.DialFunc {
-	return func(ctx context.Context) (ios.ReadeWriteCloser, string, error) {
+	return func(ctx context.Context) (ios.ReadWriteCloser, string, error) {
 		c, err := Dial(key)
 		return c, key, err
 	}

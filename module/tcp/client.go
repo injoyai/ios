@@ -11,7 +11,7 @@ import (
 var _ ios.AReadWriteCloser = (*Client)(nil)
 
 func NewDial(addr string) ios.DialFunc {
-	return func(ctx context.Context) (ios.ReadeWriteCloser, string, error) {
+	return func(ctx context.Context) (ios.ReadWriteCloser, string, error) {
 		c, err := DialTimeout(addr, 0)
 		return c, addr, err
 	}

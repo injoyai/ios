@@ -7,7 +7,7 @@ import (
 )
 
 func NewDial(addr string, cfg *Config) ios.DialFunc {
-	return func(ctx context.Context) (ios.ReadeWriteCloser, string, error) {
+	return func(ctx context.Context) (ios.ReadWriteCloser, string, error) {
 		c, err := DialConnect(addr, cfg)
 		return c, addr, err
 	}
@@ -51,7 +51,7 @@ type Config struct {
 	Args       amqp.Table
 }
 
-var _ ios.ReadeWriteCloser = (*Client)(nil)
+var _ ios.ReadWriteCloser = (*Client)(nil)
 
 type Client struct {
 	channel *amqp.Channel

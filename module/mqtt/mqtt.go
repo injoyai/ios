@@ -19,7 +19,7 @@ type (
 )
 
 func NewDial(cfg *ClientOptions, subscribe Subscribe, publish Publish) ios.DialFunc {
-	return func(ctx context.Context) (ios.ReadeWriteCloser, string, error) {
+	return func(ctx context.Context) (ios.ReadWriteCloser, string, error) {
 		c, err := DialClient(cfg, subscribe, publish)
 		key := cfg.ClientID
 		if len(cfg.Servers) > 0 && cfg.Servers[0] != nil {

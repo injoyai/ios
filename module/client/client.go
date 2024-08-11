@@ -44,7 +44,7 @@ func DialWithContext(ctx context.Context, f ios.DialFunc, op ...Option) (*Client
 }
 
 func WithMust(h ios.DialFunc, l Logger) ios.DialFunc {
-	return func(ctx context.Context) (ios.ReadeWriteCloser, string, error) {
+	return func(ctx context.Context) (ios.ReadWriteCloser, string, error) {
 		if h == nil {
 			return nil, "", errors.New("handler is nil")
 		}

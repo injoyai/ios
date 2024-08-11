@@ -15,7 +15,7 @@ type (
 		io.Closer
 	}
 
-	ReadeWriteCloser interface {
+	ReadWriteCloser interface {
 		Reader
 		io.WriteCloser
 	}
@@ -137,4 +137,4 @@ func (this Ack) Ack() error { return nil }
 
 func (this Ack) Payload() []byte { return this }
 
-type DialFunc func(ctx context.Context) (ReadeWriteCloser, string, error)
+type DialFunc func(ctx context.Context) (ReadWriteCloser, string, error)
