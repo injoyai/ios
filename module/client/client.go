@@ -102,13 +102,12 @@ type Client struct {
 	*safe.Closer            //关闭
 	*safe.Runner            //运行
 
-	ctx         context.Context //上下文
-	readBuffer  []byte          //读数据的缓存大小,针对io.Reader有效
-	redial      bool            //是否重连
-	dial        ios.DialFunc    //连接函数
-	options     []Option        //选项
-	readTimeout time.Duration   //读取超时时间
-	timeout     *safe.Runner
+	ctx        context.Context //上下文
+	readBuffer []byte          //读数据的缓存大小,针对io.Reader有效
+	redial     bool            //是否重连
+	dial       ios.DialFunc    //连接函数
+	options    []Option        //选项
+	timeout    *safe.Runner    //超时机制
 }
 
 func (this *Client) connect(must bool) (err error) {
@@ -131,22 +130,7 @@ func (this *Client) connect(must bool) (err error) {
 	this.MoreWriter = ios.NewMoreWriter(r)
 	this.Info.DialTime = time.Now()
 	this.Runner = safe.NewRunnerWithContext(this.ctx, this.run)
-	this.timeout = safe.NewRunnerWithContext(this.ctx, func(ctx context.Context) error {
-		if this.readTimeout <= 0 {
-			return nil
-		}
-		timer := time.NewTimer(this.readTimeout)
-		defer timer.Stop()
-		for {
-			timer.Reset(this.readTimeout)
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-timer.C:
-				return ios.ErrReadTimeout
-			}
-		}
-	})
+	this.timeout = safe.NewRunnerWithContext(this.ctx, nil)
 	this.Closer = safe.NewCloser().SetCloseFunc(func(err error) error {
 		//关闭真实实例
 		if er := r.Close(); er != nil {
@@ -191,9 +175,28 @@ func (this *Client) connect(must bool) (err error) {
 	return nil
 }
 
-func (this *Client) SetReadTimeout(t time.Duration) *Client {
-	this.readTimeout = t
-	this.timeout.Restart()
+func (this *Client) SetReadTimeout(timeout time.Duration) *Client {
+	this.timeout.SetFunc(func(ctx context.Context) error {
+		if timeout <= 0 {
+			return nil
+		}
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+		for {
+			timer.Reset(timeout)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-timer.C:
+				return ios.ErrReadTimeout
+			}
+		}
+	})
+	this.timeout.Stop()
+	if this.Runner.Running() {
+		//当客户端在运行时,在运行超时机制
+		this.timeout.Start()
+	}
 	return this
 }
 
