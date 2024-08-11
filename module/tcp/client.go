@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"context"
 	"github.com/injoyai/ios"
 	"io"
 	"net"
@@ -8,6 +9,13 @@ import (
 )
 
 var _ ios.AReadWriteCloser = (*Client)(nil)
+
+func NewDial(addr string) ios.DialFunc {
+	return func(ctx context.Context) (ios.ReadeWriteCloser, string, error) {
+		c, err := DialTimeout(addr, 0)
+		return c, addr, err
+	}
+}
 
 func Dial(addr string) (*Client, error) {
 	return DialTimeout(addr, 0)

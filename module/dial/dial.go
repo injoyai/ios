@@ -1,41 +1,50 @@
 package dial
 
 import (
-	"context"
-	"errors"
-	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/module/client"
-	"time"
+	"github.com/injoyai/ios/module/memory"
+	"github.com/injoyai/ios/module/mqtt"
+	"github.com/injoyai/ios/module/rabbitmq"
+	"github.com/injoyai/ios/module/serial"
+	"github.com/injoyai/ios/module/ssh"
+	"github.com/injoyai/ios/module/tcp"
+	"github.com/injoyai/ios/module/websocket"
 )
 
-func Dial(f Handler) (*client.Client, error) {
+var (
+	WithMemory    = memory.NewDial
+	WithMQTT      = mqtt.NewDial
+	WithRabbitmq  = rabbitmq.Dial
+	WithSerial    = serial.NewDial
+	WithSSH       = ssh.NewDial
+	WithTCP       = tcp.NewDial
+	WithWebsocket = websocket.NewDial
+)
 
-	return &client.Client{}, nil
+func TCP(addr string, op ...client.Option) (*client.Client, error) {
+	return client.Dial(tcp.NewDial(addr), op...)
 }
 
-type Handler func(ctx context.Context) (ios.ReadeWriteCloser, string, error)
+func SSH(cfg *ssh.Config, op ...client.Option) (*client.Client, error) {
+	return client.Dial(ssh.NewDial(cfg), op...)
+}
 
-func WithMust(h Handler) Handler {
-	return func(ctx context.Context) (ios.ReadeWriteCloser, string, error) {
-		if h == nil {
-			return nil, "", errors.New("handler is nil")
-		}
-		wait := time.Second * 0
-		for i := 0; ; i++ {
-			select {
-			case <-ctx.Done():
-				return nil, "", ctx.Err()
-			case <-time.After(wait):
-				c, s, err := h(ctx)
-				if err == nil {
-					return c, s, nil
-				}
-				if wait < time.Second {
-					wait = time.Second
-				} else if wait <= time.Second*16 {
-					wait *= 2
-				}
-			}
-		}
-	}
+func Websocket(addr string, op ...client.Option) (*client.Client, error) {
+	return client.Dial(websocket.NewDial(addr), op...)
+}
+
+func Serial(cfg *serial.Config, op ...client.Option) (*client.Client, error) {
+	return client.Dial(serial.NewDial(cfg), op...)
+}
+
+func MQTT(cfg *mqtt.ClientOptions, subscribe mqtt.Subscribe, publish mqtt.Publish, op ...client.Option) (*client.Client, error) {
+	return client.Dial(mqtt.NewDial(cfg, subscribe, publish), op...)
+}
+
+func Rabbitmq(addr string, cfg *rabbitmq.Config, op ...client.Option) (*client.Client, error) {
+	return client.Dial(rabbitmq.NewDial(addr, cfg), op...)
+}
+
+func Memory(key string, op ...client.Option) (*client.Client, error) {
+	return client.Dial(memory.NewDial(key), op...)
 }

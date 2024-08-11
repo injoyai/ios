@@ -2,11 +2,19 @@ package memory
 
 import (
 	"bytes"
+	"context"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
 	"io"
 	"time"
 )
+
+func NewDial(key string) ios.DialFunc {
+	return func(ctx context.Context) (ios.ReadeWriteCloser, string, error) {
+		c, err := Dial(key)
+		return c, key, err
+	}
+}
 
 func Dial(key string) (*Client, error) {
 	return DialTimeout(key, 0)

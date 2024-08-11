@@ -1,12 +1,20 @@
 package websocket
 
 import (
+	"context"
 	"github.com/gorilla/websocket"
 	"github.com/injoyai/ios"
 	"net/http"
 )
 
 var _ ios.MReadWriteCloser = &Client{}
+
+func NewDial(url string) ios.DialFunc {
+	return func(ctx context.Context) (ios.ReadeWriteCloser, string, error) {
+		c, err := Dial(url)
+		return c, url, err
+	}
+}
 
 func Dial(url string) (*Client, error) {
 	conn, header, err := websocket.DefaultDialer.Dial(url, nil)

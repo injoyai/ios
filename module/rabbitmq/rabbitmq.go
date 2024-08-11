@@ -6,8 +6,15 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func DialConnect(url string, cfg *Config) (*Client, error) {
-	c, err := amqp.Dial(url)
+func NewDial(addr string, cfg *Config) ios.DialFunc {
+	return func(ctx context.Context) (ios.ReadeWriteCloser, string, error) {
+		c, err := DialConnect(addr, cfg)
+		return c, addr, err
+	}
+}
+
+func DialConnect(addr string, cfg *Config) (*Client, error) {
+	c, err := amqp.Dial(addr)
 	if err != nil {
 		return nil, err
 	}
