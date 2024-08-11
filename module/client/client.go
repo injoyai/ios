@@ -73,16 +73,16 @@ func WithMust(h ios.DialFunc, l Logger) ios.DialFunc {
 
 func newClient(ctx context.Context, f ios.DialFunc, op ...Option) *Client {
 	return &Client{
-		tag:    maps.NewSafe(),
+		Tag:    maps.NewSafe(),
 		ctx:    ctx,
 		Logger: defaultLogger,
 		Info: Info{
 			CreateTime: time.Now(),
 			DialTime:   time.Now(),
 		},
-		Event:  &Event{},
-		dial:   f,
-		option: op,
+		Event:   &Event{},
+		dial:    f,
+		options: op,
 	}
 }
 
@@ -91,22 +91,22 @@ Client
 客户端的指针地址是唯一标识,key是表面的唯一标识,需要用户自己维护
 */
 type Client struct {
-	Key            string     //自定义标识
-	ios.Reader                //IO实例
-	ios.MoreWriter            //多个方式写入
-	tag            *maps.Safe //标签,用于记录连接的一些信息
+	Key            string //自定义标识
+	ios.Reader            //IO实例
+	ios.MoreWriter        //多个方式写入
 
-	ctx          context.Context //上下文
-	Logger                       //日志
-	Info                         //基本信息
-	*Event                       //事件
-	*safe.Closer                 //关闭
-	*safe.Runner                 //运行
+	Tag          *maps.Safe //标签,用于记录连接的一些信息
+	Logger                  //日志
+	Info                    //基本信息
+	*Event                  //事件
+	*safe.Closer            //关闭
+	*safe.Runner            //运行
 
-	readBuffer []byte       //读数据的缓存大小,针对io.Reader有效
-	redial     bool         //是否重连
-	dial       ios.DialFunc //连接函数
-	option     []Option     //选项
+	ctx        context.Context //上下文
+	readBuffer []byte          //读数据的缓存大小,针对io.Reader有效
+	redial     bool            //是否重连
+	dial       ios.DialFunc    //连接函数
+	options    []Option
 }
 
 func (this *Client) connect(must bool) (err error) {
@@ -139,10 +139,13 @@ func (this *Client) connect(must bool) (err error) {
 		this.Runner.Stop()
 		//关闭/断开连接事件
 		if this.Event.OnDisconnect != nil {
-			this.Event.OnDisconnect(this.ctx, this, err)
+			this.Event.OnDisconnect(this, err)
 		}
 		return nil
 	})
+	//this.Logger
+	//this.Event
+	//this.tag
 
 	//连接事件
 	this.Logger.Infof("[%s] 连接服务成功...\n", this.GetKey())
@@ -164,14 +167,19 @@ func (this *Client) connect(must bool) (err error) {
 	}
 
 	//执行选项
-	for _, fn := range this.option {
-		fn(this)
-	}
+	this.SetOption(this.options...)
 
 	return nil
 }
 
-func (this *Client) SetRedial(b ...bool) *Client {
+func (this *Client) SetOption(op ...Option) *Client {
+	for _, fn := range op {
+		fn(this)
+	}
+	return this
+}
+
+func (this *Client) Redial(b ...bool) *Client {
 	this.redial = len(b) == 0 || b[0]
 	return this
 }
@@ -187,7 +195,11 @@ func (this *Client) GetKey() string {
 }
 
 func (this *Client) SetKey(key string) *Client {
+	oldKey := this.Key
 	this.Key = key
+	if this.Key != oldKey && this.Event.OnKeyChange != nil {
+		this.Event.OnKeyChange(this, oldKey)
+	}
 	return this
 }
 

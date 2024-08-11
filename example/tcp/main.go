@@ -12,7 +12,7 @@ func main() {
 	c := client.MustDial(tcp.NewDial(":10086"), func(c *client.Client) {
 		c.SetRedial()
 		go c.TimerWriter(time.Second*3, func(w ios.MoreWriter) error {
-			return w.WriteAny(time.Now())
+			return w.WriteAny(time.Now().Format("2006-01-02 15:04:05"))
 		})
 	})
 

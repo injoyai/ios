@@ -25,6 +25,13 @@ func TCP(addr string, op ...client.Option) (*client.Client, error) {
 	return client.Dial(tcp.NewDial(addr), op...)
 }
 
+func RedialTCP(addr string, op ...client.Option) *client.Client {
+	return client.MustDial(tcp.NewDial(addr), func(c *client.Client) {
+		c.Redial()
+		c.SetOption(op...)
+	})
+}
+
 func SSH(cfg *ssh.Config, op ...client.Option) (*client.Client, error) {
 	return client.Dial(ssh.NewDial(cfg), op...)
 }
