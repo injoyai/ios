@@ -102,11 +102,13 @@ type Client struct {
 	*safe.Closer            //关闭
 	*safe.Runner            //运行
 
-	ctx        context.Context //上下文
-	readBuffer []byte          //读数据的缓存大小,针对io.Reader有效
-	redial     bool            //是否重连
-	dial       ios.DialFunc    //连接函数
-	options    []Option
+	ctx         context.Context //上下文
+	readBuffer  []byte          //读数据的缓存大小,针对io.Reader有效
+	redial      bool            //是否重连
+	dial        ios.DialFunc    //连接函数
+	options     []Option        //选项
+	readTimeout time.Duration   //读取超时时间
+	timeout     *safe.Runner
 }
 
 func (this *Client) connect(must bool) (err error) {
@@ -129,6 +131,22 @@ func (this *Client) connect(must bool) (err error) {
 	this.MoreWriter = ios.NewMoreWriter(r)
 	this.Info.DialTime = time.Now()
 	this.Runner = safe.NewRunnerWithContext(this.ctx, this.run)
+	this.timeout = safe.NewRunnerWithContext(this.ctx, func(ctx context.Context) error {
+		if this.readTimeout <= 0 {
+			return nil
+		}
+		timer := time.NewTimer(this.readTimeout)
+		defer timer.Stop()
+		for {
+			timer.Reset(this.readTimeout)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-timer.C:
+				return ios.ErrReadTimeout
+			}
+		}
+	})
 	this.Closer = safe.NewCloser().SetCloseFunc(func(err error) error {
 		//关闭真实实例
 		if er := r.Close(); er != nil {
@@ -137,6 +155,7 @@ func (this *Client) connect(must bool) (err error) {
 		this.Logger.Errorf("[%s] 断开连接: %s\n", this.GetKey(), err.Error())
 		//结束Run,不等待,重连是直接在原先的Run里面
 		this.Runner.Stop()
+		this.timeout.Stop()
 		//关闭/断开连接事件
 		if this.Event.OnDisconnect != nil {
 			this.Event.OnDisconnect(this, err)
@@ -170,6 +189,12 @@ func (this *Client) connect(must bool) (err error) {
 	this.SetOption(this.options...)
 
 	return nil
+}
+
+func (this *Client) SetReadTimeout(t time.Duration) *Client {
+	this.readTimeout = t
+	this.timeout.Restart()
+	return this
 }
 
 func (this *Client) SetOption(op ...Option) *Client {
@@ -231,6 +256,8 @@ func (this *Client) CloseAll() error {
 
 func (this *Client) run(ctx context.Context) (err error) {
 
+	this.timeout.Start()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -276,11 +303,4 @@ func (this *Client) run(ctx context.Context) (err error) {
 		}
 	}
 
-}
-
-type Info struct {
-	CreateTime time.Time //创建时间,对象创建时间,重连不会改变
-	DialTime   time.Time //连接时间,每次重连会改变
-	ReadTime   time.Time //本次连接,最后读取到数据的时间
-	WriteTime  time.Time //本次连接,最后写入数据时间
 }
