@@ -1,6 +1,7 @@
 package mqtt
 
 import (
+	"context"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/conv"
@@ -12,7 +13,23 @@ import (
 
 var _ ios.AReadWriteCloser = &Client{}
 
-func DialClient(cfg *mqtt.ClientOptions, subscribe Subscribe, publish Publish) (*Client, error) {
+type (
+	ClientOptions = mqtt.ClientOptions
+	MQTTClient    = mqtt.Client
+)
+
+func NewDial(cfg *ClientOptions, subscribe Subscribe, publish Publish) ios.DialFunc {
+	return func(ctx context.Context) (ios.ReadWriteCloser, string, error) {
+		c, err := DialClient(cfg, subscribe, publish)
+		key := cfg.ClientID
+		if len(cfg.Servers) > 0 && cfg.Servers[0] != nil {
+			key = cfg.Servers[0].Host
+		}
+		return c, key, err
+	}
+}
+
+func DialClient(cfg *ClientOptions, subscribe Subscribe, publish Publish) (*Client, error) {
 	c := mqtt.NewClient(cfg)
 	if token := c.Connect(); token.Wait() && token.Error() != nil {
 		return nil, token.Error()
@@ -20,7 +37,7 @@ func DialClient(cfg *mqtt.ClientOptions, subscribe Subscribe, publish Publish) (
 	return Dial(c, subscribe, publish)
 }
 
-func Dial(c mqtt.Client, subscribe Subscribe, publish Publish) (*Client, error) {
+func Dial(c MQTTClient, subscribe Subscribe, publish Publish) (*Client, error) {
 	cli := &Client{
 		Client:    c,
 		sub:       make(chan *Message),

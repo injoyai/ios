@@ -1,13 +1,21 @@
 package ios
 
-import "io"
+import (
+	"context"
+	"io"
+)
 
 type (
 	Reader interface {
 		//Reader为这三种类型 [io.Reader|AReader|MReader] 如何用泛型实现?
 	}
 
-	ReadeWriteCloser interface {
+	ReadCloser interface {
+		Reader
+		io.Closer
+	}
+
+	ReadWriteCloser interface {
 		Reader
 		io.WriteCloser
 	}
@@ -62,6 +70,38 @@ type (
 		Run() error
 		Running() bool
 	}
+
+	Base64Writer interface {
+		WriteBase64(s string) error
+	}
+
+	HEXWriter interface {
+		WriteHEX(s string) error
+	}
+
+	JsonWriter interface {
+		WriteJson(a any) error
+	}
+
+	AnyWriter interface {
+		WriteAny(a any) error
+	}
+
+	ChanWriter interface {
+		WriteChan(c chan any) error
+	}
+
+	// MoreWriter 各种方式的写入
+	MoreWriter interface {
+		io.Writer
+		io.StringWriter
+		io.ByteWriter
+		Base64Writer
+		HEXWriter
+		JsonWriter
+		AnyWriter
+		ChanWriter
+	}
 )
 
 // Acker 兼容MQ等需要确认的场景
@@ -96,3 +136,5 @@ type Ack []byte
 func (this Ack) Ack() error { return nil }
 
 func (this Ack) Payload() []byte { return this }
+
+type DialFunc func(ctx context.Context) (ReadWriteCloser, string, error)
