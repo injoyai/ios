@@ -14,11 +14,11 @@ import (
 var _ ios.AReadWriteCloser = &Client{}
 
 type (
-	ClientOptions = mqtt.ClientOptions
-	MQTTClient    = mqtt.Client
+	Config  = mqtt.ClientOptions
+	Connect = mqtt.Client
 )
 
-func NewDial(cfg *ClientOptions, subscribe Subscribe, publish Publish) ios.DialFunc {
+func NewDial(cfg *Config, subscribe Subscribe, publish Publish) ios.DialFunc {
 	return func(ctx context.Context) (ios.ReadWriteCloser, string, error) {
 		c, err := DialClient(cfg, subscribe, publish)
 		key := cfg.ClientID
@@ -29,7 +29,7 @@ func NewDial(cfg *ClientOptions, subscribe Subscribe, publish Publish) ios.DialF
 	}
 }
 
-func DialClient(cfg *ClientOptions, subscribe Subscribe, publish Publish) (*Client, error) {
+func DialClient(cfg *Config, subscribe Subscribe, publish Publish) (*Client, error) {
 	c := mqtt.NewClient(cfg)
 	if token := c.Connect(); token.Wait() && token.Error() != nil {
 		return nil, token.Error()
@@ -37,7 +37,7 @@ func DialClient(cfg *ClientOptions, subscribe Subscribe, publish Publish) (*Clie
 	return Dial(c, subscribe, publish)
 }
 
-func Dial(c MQTTClient, subscribe Subscribe, publish Publish) (*Client, error) {
+func Dial(c Connect, subscribe Subscribe, publish Publish) (*Client, error) {
 	cli := &Client{
 		Client:    c,
 		sub:       make(chan *Message),
