@@ -25,8 +25,9 @@ func main() {
 		c := client.New(tcp.NewDial(":10086"))
 		c.Event.OnReconnect = client.WithReconnectInterval(time.Second * 3)
 		c.Dial(true, func(c *client.Client) {
-			c.SetKey("6666")
+			c.SetKey(":10087")
 			c.SetRedial()
+			//c.SetReadTimeout(time.Second * 10)
 			go c.TimerWriter(time.Second*3, func(w ios.MoreWriter) error {
 				return w.WriteAny(time.Now().Format("2006-01-02 15:04:05"))
 			})

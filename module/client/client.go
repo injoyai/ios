@@ -186,15 +186,15 @@ func (this *Client) SetReadTimeout(timeout time.Duration) *Client {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-timer.C:
+				this.CloseWithErr(ios.ErrReadTimeout)
 				return ios.ErrReadTimeout
 			}
 		}
 	})
-	this.timeout.Stop()
-	if this.Runner.Running() {
-		//当客户端在运行时,在运行超时机制
-		this.timeout.Start()
-	}
+
+	//不用判断客户端是否已经运行,可能还没开始执行
+	this.timeout.Restart()
+
 	return this
 }
 

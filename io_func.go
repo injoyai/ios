@@ -49,8 +49,8 @@ func ReadPrefix(r io.Reader, prefix []byte) ([]byte, error) {
 	return cache, nil
 }
 
-// Split 按最大长度分割字节
-func Split(p []byte, max int) [][]byte {
+// SplitBytesByLength 按最大长度分割字节
+func SplitBytesByLength(p []byte, max int) [][]byte {
 	if max == 0 {
 		return [][]byte{}
 	}
