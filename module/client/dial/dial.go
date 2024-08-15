@@ -27,7 +27,7 @@ func TCP(addr string, op ...client.Option) (*client.Client, error) {
 
 func RedialTCP(addr string, op ...client.Option) *client.Client {
 	return client.MustDial(tcp.NewDial(addr), func(c *client.Client) {
-		c.Redial()
+		c.SetAutoRedial()
 		c.SetOption(op...)
 	})
 }
@@ -44,7 +44,7 @@ func Serial(cfg *serial.Config, op ...client.Option) (*client.Client, error) {
 	return client.Dial(serial.NewDial(cfg), op...)
 }
 
-func MQTT(cfg *mqtt.ClientOptions, subscribe mqtt.Subscribe, publish mqtt.Publish, op ...client.Option) (*client.Client, error) {
+func MQTT(cfg *mqtt.Config, subscribe mqtt.Subscribe, publish mqtt.Publish, op ...client.Option) (*client.Client, error) {
 	return client.Dial(mqtt.NewDial(cfg, subscribe, publish), op...)
 }
 

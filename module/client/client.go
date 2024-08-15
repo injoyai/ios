@@ -7,6 +7,7 @@ import (
 	"github.com/injoyai/base/maps"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
+	"io"
 	"time"
 )
 
@@ -28,8 +29,8 @@ func MustDial(f ios.DialFunc, op ...Option) *Client {
 }
 
 func MustDialWithContext(ctx context.Context, f ios.DialFunc, op ...Option) *Client {
-	c := newClient(ctx, f, op...)
-	_ = c.connect(true)
+	c := New(ctx, f)
+	_ = c.Connect(true, op...)
 	return c
 }
 
@@ -38,40 +39,12 @@ func Dial(f ios.DialFunc, op ...Option) (*Client, error) {
 }
 
 func DialWithContext(ctx context.Context, f ios.DialFunc, op ...Option) (*Client, error) {
-	c := newClient(ctx, f, op...)
-	err := c.connect(false)
+	c := New(ctx, f)
+	err := c.Connect(false, op...)
 	return c, err
 }
 
-func WithMust(h ios.DialFunc, l Logger) ios.DialFunc {
-	return func(ctx context.Context) (ios.ReadWriteCloser, string, error) {
-		if h == nil {
-			return nil, "", errors.New("handler is nil")
-		}
-		wait := time.Second * 0
-		for i := 0; ; i++ {
-			select {
-			case <-ctx.Done():
-				return nil, "", ctx.Err()
-			case <-time.After(wait):
-				c, k, err := h(ctx)
-				if err == nil {
-					return c, k, nil
-				}
-				if wait < time.Second {
-					wait = time.Second
-				} else if wait <= time.Second*16 {
-					wait *= 2
-				}
-				if l != nil {
-					l.Errorf("连接错误: %v 等待%d秒后重试...\n", err, wait/time.Second)
-				}
-			}
-		}
-	}
-}
-
-func newClient(ctx context.Context, f ios.DialFunc, op ...Option) *Client {
+func New(ctx context.Context, f ios.DialFunc) *Client {
 	return &Client{
 		Tag:    maps.NewSafe(),
 		ctx:    ctx,
@@ -80,9 +53,9 @@ func newClient(ctx context.Context, f ios.DialFunc, op ...Option) *Client {
 			CreateTime: time.Now(),
 			DialTime:   time.Now(),
 		},
-		Event:   &Event{},
-		dial:    f,
-		options: op,
+		Event:      &Event{},
+		redialSign: make(chan struct{}),
+		dial:       f,
 	}
 }
 
@@ -92,36 +65,30 @@ Client
 */
 type Client struct {
 	Key            string //自定义标识
-	ios.Reader            //IO实例
+	ios.Reader            //IO实例 目前支持ios.AReader,ios.MReader,io.Reader
 	ios.MoreWriter        //多个方式写入
 
-	Tag          *maps.Safe //标签,用于记录连接的一些信息
-	Logger                  //日志
-	Info                    //基本信息
-	*Event                  //事件
-	*safe.Closer            //关闭
-	*safe.Runner            //运行
+	Tag          *maps.Safe   //标签,用于记录连接的一些信息
+	Logger                    //日志
+	Info                      //基本信息
+	*Event                    //事件
+	*safe.Closer              //关闭
+	*safe.Runner              //运行
+	timeout      *safe.Runner //超时机制
 
 	ctx        context.Context //上下文
-	readBuffer []byte          //读数据的缓存大小,针对io.Reader有效
-	redial     bool            //是否重连
+	autoRedial bool            //是否自动重连
+	redialSign chan struct{}   //重连信号,未设置自动重连也可以手动重连
 	dial       ios.DialFunc    //连接函数
 	options    []Option        //选项
-	timeout    *safe.Runner    //超时机制
 }
 
-func (this *Client) connect(must bool) (err error) {
+func (this *Client) Connect(reconnect bool, op ...Option) (err error) {
 
 	defer func() { this.CloseWithErr(err) }()
 
-	f := this.dial
-	if must {
-		f = WithMust(f, this.Logger)
-	}
-
-	r, k, err := f(this.ctx)
+	r, k, err := this.doDial(reconnect)
 	if err != nil {
-
 		return err
 	}
 
@@ -131,16 +98,18 @@ func (this *Client) connect(must bool) (err error) {
 	this.Info.DialTime = time.Now()
 	this.Runner = safe.NewRunnerWithContext(this.ctx, this.run)
 	this.timeout = safe.NewRunnerWithContext(this.ctx, nil)
+	this.options = op
 	this.Closer = safe.NewCloser().SetCloseFunc(func(err error) error {
 		//关闭真实实例
 		if er := r.Close(); er != nil {
 			return er
 		}
-		this.Logger.Errorf("[%s] 断开连接: %s\n", this.GetKey(), err.Error())
 		//结束Run,不等待,重连是直接在原先的Run里面
 		this.Runner.Stop()
 		this.timeout.Stop()
+
 		//关闭/断开连接事件
+		this.Logger.Errorf("[%s] 断开连接: %s\n", this.GetKey(), err.Error())
 		if this.Event.OnDisconnect != nil {
 			this.Event.OnDisconnect(this, err)
 		}
@@ -160,12 +129,15 @@ func (this *Client) connect(must bool) (err error) {
 
 	//写入事件
 	this.MoreWriter.(*ios.MoreWrite).Option = []ios.WriteOption{
-		func(p []byte) ([]byte, error) {
+		func(p []byte) (_ []byte, err error) {
 			this.Logger.Writeln("["+this.GetKey()+"] ", p)
 			if this.Event.OnWriteMessage != nil {
-				return this.Event.OnWriteMessage(p)
+				p, err = this.Event.OnWriteMessage(p)
 			}
-			return p, nil
+			this.Info.WriteTime = time.Now()
+			this.Info.WriteCount++
+			this.Info.WriteBytes += len(p)
+			return p, err
 		},
 	}
 
@@ -175,6 +147,23 @@ func (this *Client) connect(must bool) (err error) {
 	return nil
 }
 
+func (this *Client) doDial(must bool) (ios.ReadWriteCloser, string, error) {
+	if this.dial == nil {
+		return nil, "", errors.New("handler is nil")
+	}
+	if !must {
+		return this.dial(this.ctx)
+	}
+	this.Logger.Infof("等待连接服务...\n")
+	if this.Event != nil && this.Event.OnReconnect != nil {
+		return this.Event.OnReconnect(this.ctx, this.dial)
+	}
+	//防止用户设置错了重试,再外层在加上一层退避重试,是否需要? 可能想重试10次就不重试就无法实现了
+	f := WithReconnectRetreat(time.Second*2, time.Second*32, 2)
+	return f(this.ctx, this.dial)
+}
+
+// SetReadTimeout 设置读取超时,即距离上次读取数据时间超过该设置值,则会关闭连接,0表示不超时
 func (this *Client) SetReadTimeout(timeout time.Duration) *Client {
 	this.timeout.SetFunc(func(ctx context.Context) error {
 		if timeout <= 0 {
@@ -204,17 +193,6 @@ func (this *Client) SetOption(op ...Option) *Client {
 	for _, fn := range op {
 		fn(this)
 	}
-	return this
-}
-
-func (this *Client) Redial(b ...bool) *Client {
-	this.redial = len(b) == 0 || b[0]
-	return this
-}
-
-// SetReadBuffer 设置读取缓存的大小,只针对io.Reader有效
-func (this *Client) SetReadBuffer(size int) *Client {
-	this.readBuffer = make([]byte, size)
 	return this
 }
 
@@ -252,27 +230,52 @@ func (this *Client) TimerWriter(t time.Duration, f func(w ios.MoreWriter) error)
 	})
 }
 
+// CloseAll 关闭连接,并不再重试
 func (this *Client) CloseAll() error {
-	this.redial = false
+	this.autoRedial = false
 	return this.Closer.Close()
 }
 
+// SetAutoRedial 设置自动重连,当连接断开时,
+// 会进行自动重连,退避重试,直到成功,除非上下文关闭
+func (this *Client) SetAutoRedial(b ...bool) *Client {
+	this.autoRedial = len(b) == 0 || b[0]
+	return this
+}
+
+// Redial 设置重连
+func (this *Client) Redial() {
+	this.redialSign <- struct{}{}
+}
+
+// run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?
 func (this *Client) run(ctx context.Context) (err error) {
 
+	//超时机制
 	this.timeout.Start()
 
 	for {
 		select {
+		//这个ctx不是Client的ctx,而是Runner的ctx属于Client的ctx的子级
 		case <-ctx.Done():
-			//这个ctx不是Client的ctx,而是Runner的ctx属于Client的ctx的子级
-			if this.redial {
+
+			if this.autoRedial {
 				//设置了重连,并且已经运行,其他都关闭
-				if err := this.connect(true); err != nil {
+				//这里连接的错误只会出现在上下文关闭的情况
+				if err := this.Connect(true, this.options...); err != nil {
 					return err
 				}
 				return this.Run()
 			}
 			return this.Closer.Err()
+
+		case <-this.redialSign:
+
+			//先关闭老连接
+			this.CloseWithErr(errors.New("手动重连"))
+			//尝试建立连接,不需要重试,连接失败后会进行下一个循环
+			//下个循环会走正常的断开是否重连逻辑,设置重连会一直重试,否则退出执行
+			this.Connect(false, this.options...)
 
 		default:
 
@@ -280,28 +283,46 @@ func (this *Client) run(ctx context.Context) (err error) {
 			if this.Event == nil {
 				this.Event = &Event{}
 			}
-			if this.Event.OnReadBuffer == nil {
-				this.Event.OnReadBuffer = ios.ReadBuffer
-			}
-			if this.Event.OnDealMessage != nil {
-				this.Event.OnDealMessage = func(c *Client, message ios.Acker) {}
-			}
-			if this.readBuffer == nil {
-				this.readBuffer = make([]byte, 1024)
+
+			//读取数据,目前支持3种类型,Reader, AReader, MReader
+			//如果是AReader,MReader,说明是分包分好的数据,则直接读取即可
+			//如果是Reader,则数据还处于粘包状态,需要调用时间OnReadBuffer,来进行读取
+			var ack ios.Acker
+			switch r := this.Reader.(type) {
+			case io.Reader:
+				var bs []byte
+				if this.Event.OnReadBuffer == nil {
+					this.Event.OnReadBuffer = ios.NewReadWithBuffer(make([]byte, 1024*4))
+				}
+				bs, err = this.Event.OnReadBuffer(r)
+				ack = ios.Ack(bs)
+
+			case ios.MReader:
+				var bs []byte
+				bs, err = r.ReadMessage()
+				ack = ios.Ack(bs)
+
+			case ios.AReader:
+				ack, err = r.ReadAck()
+
 			}
 
-			//读取数据
-			ack, err := this.Event.OnReadBuffer(this.Reader, this.readBuffer)
 			if err != nil {
 				this.CloseWithErr(err)
+				//交给closer进行处理接下来的逻辑,固这里不使用return
+				//例如重新连接等操作,这样只用写一个地方,简化代码
 				continue
-				return err
 			}
 			this.Info.ReadTime = time.Now()
-			this.Logger.Readln("["+this.GetKey()+"] ", ack.Payload())
+			this.Info.ReadCount++
+			this.Info.ReadBytes += len(ack.Payload())
 
-			//处理数据
-			this.Event.OnDealMessage(this, ack)
+			//处理数据,使用事件OnDealMessage处理数据,
+			//如果未实现,则不处理数据,则不会确认消息
+			this.Logger.Readln("["+this.GetKey()+"] ", ack.Payload())
+			if this.Event.OnDealMessage != nil {
+				this.Event.OnDealMessage(this, ack)
+			}
 
 		}
 	}
