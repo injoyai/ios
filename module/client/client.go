@@ -24,11 +24,11 @@ func Run(f ios.DialFunc, op ...Option) error {
 	return c.Run()
 }
 
-func MustDial(f ios.DialFunc, op ...Option) *Client {
-	return MustDialWithContext(context.Background(), f, op...)
+func Redial(f ios.DialFunc, op ...Option) *Client {
+	return RedialWithContext(context.Background(), f, op...)
 }
 
-func MustDialWithContext(ctx context.Context, f ios.DialFunc, op ...Option) *Client {
+func RedialWithContext(ctx context.Context, f ios.DialFunc, op ...Option) *Client {
 	c := NewWithContext(ctx, f)
 	c.SetRedial()
 	_ = c.Dial(true, op...)
@@ -255,7 +255,7 @@ func (this *Client) SetRedial(b ...bool) *Client {
 	return this
 }
 
-// Redial 设置重连
+// Redial 断开重连,是否有必要? 因为可以用其他方式实现
 func (this *Client) Redial() {
 	this.redialSign <- struct{}{}
 }

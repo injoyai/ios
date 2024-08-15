@@ -26,8 +26,7 @@ func TCP(addr string, op ...client.Option) (*client.Client, error) {
 }
 
 func RedialTCP(addr string, op ...client.Option) *client.Client {
-	return client.MustDial(tcp.NewDial(addr), func(c *client.Client) {
-		c.SetAutoRedial()
+	return client.Redial(tcp.NewDial(addr), func(c *client.Client) {
 		c.SetOption(op...)
 	})
 }
