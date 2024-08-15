@@ -30,7 +30,7 @@ func MustDial(f ios.DialFunc, op ...Option) *Client {
 
 func MustDialWithContext(ctx context.Context, f ios.DialFunc, op ...Option) *Client {
 	c := NewWithContext(ctx, f)
-	c.SetAutoRedial()
+	c.SetRedial()
 	_ = c.Dial(true, op...)
 	return c
 }
@@ -69,23 +69,27 @@ Client
 客户端的指针地址是唯一标识,key是表面的唯一标识,需要用户自己维护
 */
 type Client struct {
-	Key            string //自定义标识
-	ios.Reader            //IO实例 目前支持ios.AReader,ios.MReader,io.Reader
-	ios.MoreWriter        //多个方式写入
+	ios.Reader     //IO实例 目前支持ios.AReader,ios.MReader,io.Reader
+	ios.MoreWriter //多个方式写入
 
-	Tag          *maps.Safe   //标签,用于记录连接的一些信息
 	Logger                    //日志
 	Info                      //基本信息
 	*Event                    //事件
 	*safe.Closer              //关闭
 	*safe.Runner              //运行
+	Tag          *maps.Safe   //标签,用于记录连接的一些信息
 	timeout      *safe.Runner //超时机制
 
+	key        string          //自定义标识
 	ctx        context.Context //上下文
-	autoRedial bool            //是否自动重连
+	redial     bool            //是否自动重连
 	redialSign chan struct{}   //重连信号,未设置自动重连也可以手动重连
 	dial       ios.DialFunc    //连接函数
 	options    []Option        //选项
+}
+
+func (this *Client) MustDial(op ...Option) error {
+	return this.Dial(true, op...)
 }
 
 func (this *Client) Dial(retry bool, op ...Option) (err error) {
@@ -97,7 +101,7 @@ func (this *Client) Dial(retry bool, op ...Option) (err error) {
 		return err
 	}
 
-	this.Key = k
+	this.key = k
 	this.Reader = r
 	this.MoreWriter = ios.NewMoreWriter(r)
 	this.Info.DialTime = time.Now()
@@ -202,14 +206,17 @@ func (this *Client) SetOption(op ...Option) *Client {
 }
 
 func (this *Client) GetKey() string {
-	return this.Key
+	return this.key
 }
 
 func (this *Client) SetKey(key string) *Client {
-	oldKey := this.Key
-	this.Key = key
-	if this.Key != oldKey && this.Event.OnKeyChange != nil {
-		this.Event.OnKeyChange(this, oldKey)
+	oldKey := this.key
+	this.key = key
+	if this.key != oldKey {
+		this.Logger.Infof("[%s] 修改标识为 [%s]\n", oldKey, this.key)
+		if this.Event.OnKeyChange != nil {
+			this.Event.OnKeyChange(this, oldKey)
+		}
 	}
 	return this
 }
@@ -237,14 +244,14 @@ func (this *Client) TimerWriter(t time.Duration, f func(w ios.MoreWriter) error)
 
 // CloseAll 关闭连接,并不再重试
 func (this *Client) CloseAll() error {
-	this.autoRedial = false
+	this.redial = false
 	return this.Closer.Close()
 }
 
-// SetAutoRedial 设置自动重连,当连接断开时,
+// SetRedial 设置自动重连,当连接断开时,
 // 会进行自动重连,退避重试,直到成功,除非上下文关闭
-func (this *Client) SetAutoRedial(b ...bool) *Client {
-	this.autoRedial = len(b) == 0 || b[0]
+func (this *Client) SetRedial(b ...bool) *Client {
+	this.redial = len(b) == 0 || b[0]
 	return this
 }
 
@@ -264,7 +271,7 @@ func (this *Client) run(ctx context.Context) (err error) {
 		//这个ctx不是Client的ctx,而是Runner的ctx属于Client的ctx的子级
 		case <-ctx.Done():
 
-			if this.autoRedial {
+			if this.redial {
 				//设置了重连,并且已经运行,其他都关闭
 				//这里连接的错误只会出现在上下文关闭的情况
 				if err := this.Dial(true, this.options...); err != nil {

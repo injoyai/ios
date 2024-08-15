@@ -31,6 +31,10 @@ type Info struct {
 // WithReconnectInterval 按一定时间间隔进行重连
 func WithReconnectInterval(t time.Duration) func(ctx context.Context, dial ios.DialFunc) (ios.ReadWriteCloser, string, error) {
 	return func(ctx context.Context, dial ios.DialFunc) (ios.ReadWriteCloser, string, error) {
+		r, k, err := dial(ctx)
+		if err == nil {
+			return r, k, nil
+		}
 		for {
 			select {
 			case <-ctx.Done():
