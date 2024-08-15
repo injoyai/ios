@@ -60,8 +60,8 @@ func NewWithContext(ctx context.Context) *Client {
 			DialTime:   time.Now(),
 		},
 		Event:      &Event{},
-		Closer:     safe.NewCloser(),
-		Runner:     safe.NewRunnerWithContext(ctx, nil),
+		Closer:     nil,
+		Runner:     nil,
 		Tag:        maps.NewSafe(),
 		timeout:    safe.NewRunnerWithContext(ctx, nil),
 		ctx:        ctx,
@@ -69,7 +69,6 @@ func NewWithContext(ctx context.Context) *Client {
 		dial:       nil,
 		options:    nil,
 	}
-	c.Runner.SetFunc(c.run)
 	return c
 }
 
@@ -103,7 +102,8 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 	this.MoreWriter = ios.NewMoreWriter(r)
 	this.Info.DialTime = time.Now()
 	this.options = op
-	this.Closer.SetCloseFunc(func(err error) error {
+	this.Runner = safe.NewRunnerWithContext(this.ctx, this.run)
+	this.Closer = safe.NewCloser().SetCloseFunc(func(err error) error {
 		//关闭真实实例
 		if er := r.Close(); er != nil {
 			return er
@@ -151,6 +151,7 @@ func (this *Client) _dial(must bool, dial ios.DialFunc, op ...Option) error {
 	if err != nil {
 		return err
 	}
+	this.SetReadWriteCloser(k, r, op...)
 	//连接事件
 	this.Logger.Infof("[%s] 连接服务成功...\n", this.GetKey())
 	if this.Event.OnConnected != nil {
@@ -158,7 +159,6 @@ func (this *Client) _dial(must bool, dial ios.DialFunc, op ...Option) error {
 			return err
 		}
 	}
-	this.SetReadWriteCloser(k, r, op...)
 	return nil
 }
 

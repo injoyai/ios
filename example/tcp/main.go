@@ -4,6 +4,7 @@ import (
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/module/client"
 	"github.com/injoyai/ios/module/tcp"
+	"github.com/injoyai/logs"
 	"time"
 )
 
@@ -32,7 +33,7 @@ func main() {
 				return w.WriteAny(time.Now().Format("2006-01-02 15:04:05"))
 			})
 		})
-		c.Run()
+		logs.Err(c.Run())
 	}
 
 }

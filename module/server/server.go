@@ -6,6 +6,7 @@ import (
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/module/client"
 	"io"
+	"net"
 )
 
 type Listener interface {
@@ -14,29 +15,43 @@ type Listener interface {
 	Addr() string
 }
 
+func New(network, address string) (*Server, error) {
+	return NewWithContext(context.Background(), network, address)
+}
+
+func NewWithContext(ctx context.Context, network, address string) (*Server, error) {
+	listen, err := net.Listen(network, address)
+	if err != nil {
+		return nil, err
+	}
+	s := &Server{
+		Closer:   safe.NewCloser(),
+		Runner:   safe.NewRunnerWithContext(ctx, nil),
+		ctx:      ctx,
+		listener: listen,
+	}
+	s.Runner.SetFunc(s.run)
+	return s, nil
+}
+
 type Server struct {
 	*safe.Closer
 	*safe.Runner
 
 	ctx      context.Context //ctx
-	listener Listener        //listener
+	listener net.Listener    //listener
 }
 
 func (this *Server) run(ctx context.Context) error {
 	for {
-		c, k, err := this.listener.Accept()
+		c, err := this.listener.Accept()
 		if err != nil {
 			return err
 		}
 		go func() {
-
-			cli := client.New(nil)
-			cli.Reader = c
-			cli.MoreWriter = ios.NewMoreWriter(c)
-			this.Runner = safe.NewRunnerWithContext(this.ctx, this.run)
-			cli.SetKey(k)
+			cli := client.NewWithContext(ctx)
+			cli.SetReadWriteCloser(c.RemoteAddr().String(), c)
 			cli.Run()
-
 		}()
 	}
 }
