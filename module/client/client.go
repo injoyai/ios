@@ -29,8 +29,9 @@ func MustDial(f ios.DialFunc, op ...Option) *Client {
 }
 
 func MustDialWithContext(ctx context.Context, f ios.DialFunc, op ...Option) *Client {
-	c := New(ctx, f)
-	_ = c.Connect(true, op...)
+	c := NewWithContext(ctx, f)
+	c.SetAutoRedial()
+	_ = c.Dial(true, op...)
 	return c
 }
 
@@ -39,12 +40,16 @@ func Dial(f ios.DialFunc, op ...Option) (*Client, error) {
 }
 
 func DialWithContext(ctx context.Context, f ios.DialFunc, op ...Option) (*Client, error) {
-	c := New(ctx, f)
-	err := c.Connect(false, op...)
+	c := NewWithContext(ctx, f)
+	err := c.Dial(false, op...)
 	return c, err
 }
 
-func New(ctx context.Context, f ios.DialFunc) *Client {
+func New(f ios.DialFunc) *Client {
+	return NewWithContext(context.Background(), f)
+}
+
+func NewWithContext(ctx context.Context, f ios.DialFunc) *Client {
 	return &Client{
 		Tag:    maps.NewSafe(),
 		ctx:    ctx,
@@ -83,11 +88,11 @@ type Client struct {
 	options    []Option        //选项
 }
 
-func (this *Client) Connect(reconnect bool, op ...Option) (err error) {
+func (this *Client) Dial(retry bool, op ...Option) (err error) {
 
 	defer func() { this.CloseWithErr(err) }()
 
-	r, k, err := this.doDial(reconnect)
+	r, k, err := this.doDial(retry)
 	if err != nil {
 		return err
 	}
@@ -121,8 +126,8 @@ func (this *Client) Connect(reconnect bool, op ...Option) (err error) {
 
 	//连接事件
 	this.Logger.Infof("[%s] 连接服务成功...\n", this.GetKey())
-	if this.Event.OnConnect != nil {
-		if err := this.Event.OnConnect(this); err != nil {
+	if this.Event.OnConnected != nil {
+		if err := this.Event.OnConnected(this); err != nil {
 			return err
 		}
 	}
@@ -262,7 +267,7 @@ func (this *Client) run(ctx context.Context) (err error) {
 			if this.autoRedial {
 				//设置了重连,并且已经运行,其他都关闭
 				//这里连接的错误只会出现在上下文关闭的情况
-				if err := this.Connect(true, this.options...); err != nil {
+				if err := this.Dial(true, this.options...); err != nil {
 					return err
 				}
 				return this.Run()
@@ -275,7 +280,7 @@ func (this *Client) run(ctx context.Context) (err error) {
 			this.CloseWithErr(errors.New("手动重连"))
 			//尝试建立连接,不需要重试,连接失败后会进行下一个循环
 			//下个循环会走正常的断开是否重连逻辑,设置重连会一直重试,否则退出执行
-			this.Connect(false, this.options...)
+			this.Dial(false, this.options...)
 
 		default:
 
