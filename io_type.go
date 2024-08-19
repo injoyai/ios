@@ -102,6 +102,12 @@ type (
 		AnyWriter
 		ChanWriter
 	}
+
+	Listener interface {
+		io.Closer
+		Accept() (ReadWriteCloser, string, error)
+		Addr() string
+	}
 )
 
 // Acker 兼容MQ等需要确认的场景
@@ -138,3 +144,5 @@ func (this Ack) Ack() error { return nil }
 func (this Ack) Payload() []byte { return this }
 
 type DialFunc func(ctx context.Context) (ReadWriteCloser, string, error)
+
+type ListenFunc func() (Listener, error)
