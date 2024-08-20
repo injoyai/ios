@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/injoyai/base/maps/timeout"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/module/client"
@@ -35,10 +36,15 @@ func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*
 		Closer:   safe.NewCloser(),
 		Runner:   safe.NewRunnerWithContext(ctx, nil),
 		listener: listener,
-		timeout:  safe.NewRunnerWithContext(ctx, nil),
+		timeout:  timeout.New(),
 		client:   make(map[string]*client.Client),
 	}
 	s.Runner.SetFunc(s.run)
+	s.Closer.SetCloseFunc(func(err error) error {
+		//关闭全部客户端,是否关闭?,net包是不关闭已连接的客户端
+		s.CloseAllClient(err)
+		return listener.Close()
+	})
 	for _, v := range op {
 		v(s)
 	}
@@ -51,7 +57,7 @@ type Server struct {
 	*safe.Runner
 	key           string
 	listener      ios.Listener              //listener
-	timeout       *safe.Runner              //超时机制
+	timeout       *timeout.Timeout          //超时机制
 	clientOptions []client.Option           //客户端选项
 	client        map[string]*client.Client //客户端
 	clientMu      sync.RWMutex              //锁
@@ -60,6 +66,49 @@ type Server struct {
 func (this *Server) SetOption(op ...client.Option) *Server {
 	this.clientOptions = append(this.clientOptions, op...)
 	return this
+}
+
+// GetClient 获取客户端
+func (this *Server) GetClient(key string) *client.Client {
+	this.clientMu.RLock()
+	defer this.clientMu.RUnlock()
+	return this.client[key]
+}
+
+// GetClientLen 获取客户端数量
+func (this *Server) GetClientLen() int {
+	return len(this.client)
+}
+
+// RangeClient 遍历客户端
+func (this *Server) RangeClient(f func(c *client.Client) bool) {
+	this.clientMu.RLock()
+	defer this.clientMu.RUnlock()
+	for _, c := range this.client {
+		if !f(c) {
+			return
+		}
+	}
+}
+
+// CloseClient 关闭客户端
+func (this *Server) CloseClient(key string, err error) {
+	c := this.GetClient(key)
+	if c != nil {
+		c.CloseWithErr(err)
+	}
+	this.clientMu.Lock()
+	defer this.clientMu.Unlock()
+	delete(this.client, key)
+}
+
+// CloseAllClient 关闭全部客户端
+func (this *Server) CloseAllClient(err error) {
+	this.RangeClient(func(c *client.Client) bool {
+		c.CloseWithErr(err)
+		return true
+	})
+	this.client = make(map[string]*client.Client)
 }
 
 func (this *Server) run(ctx context.Context) error {
@@ -87,6 +136,33 @@ func (this *Server) run(ctx context.Context) error {
 			cli.SetRedial(false)
 			//取消读取超时机制,取消客户端,实现服务端
 			cli.SetReadTimeout(0)
+			//把已关闭的客户端从缓存中清除
+			onDisconnect := cli.Event.OnDisconnect
+			cli.Event.OnDisconnect = func(c *client.Client, err error) {
+				if onDisconnect != nil {
+					onDisconnect(c, err)
+				}
+				this.clientMu.Lock()
+				delete(this.client, c.GetKey())
+				this.clientMu.Unlock()
+			}
+			//保持读超时状态
+			onDealMessage := cli.Event.OnDealMessage
+			cli.Event.OnDealMessage = func(c *client.Client, message ios.Acker) {
+				this.timeout.Keep(c)
+				if onDealMessage != nil {
+					onDealMessage(c, message)
+				}
+			}
+			//保持写超时状态
+			onWriteMessage := cli.Event.OnWriteMessage
+			cli.Event.OnWriteMessage = func(bs []byte) ([]byte, error) {
+				if onWriteMessage != nil {
+					return onWriteMessage(bs)
+				}
+				this.timeout.Keep(c)
+				return bs, nil
+			}
 
 			//设置到缓存
 			this.onChangeKey(cli, "")

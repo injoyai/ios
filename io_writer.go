@@ -11,6 +11,7 @@ import (
 var _ MoreWriter = (*MoreWrite)(nil)
 
 type WriteOption func(p []byte) ([]byte, error)
+type WriteResult func(err error)
 
 func NewMoreWriter(w io.Writer, op ...WriteOption) MoreWriter {
 	return &MoreWrite{
@@ -22,16 +23,25 @@ func NewMoreWriter(w io.Writer, op ...WriteOption) MoreWriter {
 type MoreWrite struct {
 	io.Writer
 	Option []WriteOption
+	Result []WriteResult
 }
 
 func (this *MoreWrite) Write(p []byte) (n int, err error) {
 	for _, f := range this.Option {
-		p, err = f(p)
-		if err != nil {
-			return 0, err
+		if f != nil {
+			p, err = f(p)
+			if err != nil {
+				return 0, err
+			}
 		}
 	}
-	return this.Writer.Write(p)
+	n, err = this.Writer.Write(p)
+	for _, f := range this.Result {
+		if f != nil {
+			f(err)
+		}
+	}
+	return
 }
 
 func (this *MoreWrite) WriteString(s string) (n int, err error) {
