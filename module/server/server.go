@@ -8,6 +8,7 @@ import (
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/module/client"
 	"sync"
+	"time"
 )
 
 type Option func(s *Server)
@@ -35,14 +36,18 @@ func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*
 		key:      listener.Addr(),
 		Closer:   safe.NewCloser(),
 		Runner:   safe.NewRunnerWithContext(ctx, nil),
-		listener: listener,
-		timeout:  timeout.New(),
-		client:   make(map[string]*client.Client),
+		Listener: listener,
+		Timeout: timeout.New().SetDealFunc(func(key interface{}) error {
+			return key.(*client.Client).CloseWithErr(ios.ErrWithTimeout)
+		}),
+		client: make(map[string]*client.Client),
 	}
 	s.Runner.SetFunc(s.run)
+	s.Timeout.SetTimeout(time.Minute * 3) //3分钟超时(3-检查间隔会超时)
+	s.Timeout.SetInterval(time.Minute)    //1分钟检查一次
 	s.Closer.SetCloseFunc(func(err error) error {
 		//关闭全部客户端,是否关闭?,net包是不关闭已连接的客户端
-		s.CloseAllClient(err)
+		//s.CloseAllClient(err)
 		return listener.Close()
 	})
 	for _, v := range op {
@@ -56,8 +61,8 @@ type Server struct {
 	*safe.Closer
 	*safe.Runner
 	key           string
-	listener      ios.Listener              //listener
-	timeout       *timeout.Timeout          //超时机制
+	Listener      ios.Listener              //listener
+	Timeout       *timeout.Timeout          //超时机制
 	clientOptions []client.Option           //客户端选项
 	client        map[string]*client.Client //客户端
 	clientMu      sync.RWMutex              //锁
@@ -113,7 +118,7 @@ func (this *Server) CloseAllClient(err error) {
 
 func (this *Server) run(ctx context.Context) error {
 	for {
-		c, k, err := this.listener.Accept()
+		c, k, err := this.Listener.Accept()
 		if err != nil {
 			return err
 		}
@@ -149,7 +154,7 @@ func (this *Server) run(ctx context.Context) error {
 			//保持读超时状态
 			onDealMessage := cli.Event.OnDealMessage
 			cli.Event.OnDealMessage = func(c *client.Client, message ios.Acker) {
-				this.timeout.Keep(c)
+				this.Timeout.Keep(c)
 				if onDealMessage != nil {
 					onDealMessage(c, message)
 				}
@@ -160,7 +165,7 @@ func (this *Server) run(ctx context.Context) error {
 				if onWriteMessage != nil {
 					return onWriteMessage(bs)
 				}
-				this.timeout.Keep(c)
+				this.Timeout.Keep(c)
 				return bs, nil
 			}
 
