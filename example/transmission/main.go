@@ -1,12 +1,13 @@
 package main
 
 import (
-	"bufio"
-	"github.com/injoyai/io"
-	"github.com/injoyai/io/buf"
-	"github.com/injoyai/io/dial"
-	"github.com/injoyai/io/listen"
+	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/module/client"
+	"github.com/injoyai/ios/module/client/dial"
+	"github.com/injoyai/ios/module/server"
+	"github.com/injoyai/ios/module/server/listen"
 	"github.com/injoyai/logs"
+	"io"
 	"os"
 	"time"
 )
@@ -27,15 +28,18 @@ func Test(n int) {
 		var start time.Time  //当前时间
 		length := 1000 << 20 //传输的数据大小
 		totalDeal := 0
-		listen.RunTCPServer(10086, func(s *io.Server) {
-			s.SetLevel(io.LevelInfo)
-			s.SetDealFunc(func(c *io.Client, msg io.Message) {
-				if start.IsZero() {
-					start = time.Now()
-				}
-				totalDeal += msg.Len()
-				if totalDeal >= length {
-					logs.Debugf("[处理]传输耗时: %0.1fMB/s\n", float64(totalDeal/(1<<20))/time.Now().Sub(start).Seconds())
+		listen.RunTCP(10086, func(s *server.Server) {
+			//s.Logger.SetLevel(io.LevelInfo)
+			s.SetOption(func(c *client.Client) {
+				c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
+					defer msg.Ack()
+					if start.IsZero() {
+						start = time.Now()
+					}
+					totalDeal += len(msg.Payload())
+					if totalDeal >= length {
+						logs.Debugf("[处理]传输耗时: %0.1fMB/s\n", float64(totalDeal/(1<<20))/time.Now().Sub(start).Seconds())
+					}
 				}
 			})
 		})
@@ -49,43 +53,51 @@ func Test(n int) {
 		start := time.Now()  //当前时间
 		length := 1000 << 20 //传输的数据大小
 		totalRead := 0
-		readAll := func(r *bufio.Reader) (bytes []byte, err error) {
+		readAll := func(r io.Reader) (bytes []byte, err error) {
 			defer func() {
 				totalRead += len(bytes)
 				if totalRead >= length {
 					logs.Debugf("[读取]传输耗时: %0.1fMB/s\n", float64(totalRead/(1<<20))/time.Now().Sub(start).Seconds())
 				}
 			}()
-
-			return buf.Read1KB(r)
+			buf := make([]byte, 1024)
+			n, err := r.Read(buf)
+			if err != nil {
+				return nil, err
+			}
+			return buf[:n], nil
 		}
 
 		totalDeal := 0
-		go listen.RunTCPServer(20145, func(s *io.Server) {
-			s.SetLevel(io.LevelError)
-			s.Debug(false)
-			s.SetReadFunc(readAll)
-			s.SetDealFunc(func(c *io.Client, msg io.Message) {
-				totalDeal += msg.Len()
-				if totalDeal >= length {
-					logs.Debugf("[处理]传输耗时: %0.1fMB/s\n", float64(totalDeal/(1<<20))/time.Now().Sub(start).Seconds())
-					os.Exit(1)
+		go listen.RunTCP(20145, func(s *server.Server) {
+			//s.SetLevel(io.LevelError)
+			s.Logger.Debug(false)
+			s.SetOption(func(c *client.Client) {
+				c.Event.OnReadBuffer = readAll
+				c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
+					totalDeal += len(msg.Payload())
+					if totalDeal >= length {
+						logs.Debugf("[处理]传输耗时: %0.1fMB/s\n", float64(totalDeal/(1<<20))/time.Now().Sub(start).Seconds())
+						os.Exit(1)
+					}
 				}
 			})
+
 		})
 		<-time.After(time.Second)
-		<-dial.RedialTCP("127.0.0.1:20145", func(c *io.Client) {
-			c.Debug(false)
-			c.SetLevelInfo()
+		<-dial.RedialTCP("127.0.0.1:20145", func(c *client.Client) {
+			c.Logger.Debug(false)
+			//c.SetLevelInfo()
 			data := make([]byte, length)
 			start = time.Now()
 			c.Write(data)
 			logs.Debugf("[发送]传输耗时: %0.1fMB/s\n", float64(length/(1<<20))/time.Now().Sub(start).Seconds())
 			start = time.Now()
-			c.SetDealFunc(func(c *io.Client, msg io.Message) {
+			c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
 				logs.Debug(msg)
-			})
-		}).DoneAll()
+			}
+
+		}).Done()
 
 	}
 }

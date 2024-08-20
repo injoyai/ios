@@ -80,11 +80,11 @@ type Client struct {
 	ios.Reader     //IO实例 目前支持ios.AReader,ios.MReader,io.Reader
 	ios.MoreWriter //多个方式写入
 
-	Logger                    //日志
 	Info                      //基本信息
 	*Event                    //事件
 	*safe.Closer              //关闭
 	*safe.Runner              //运行
+	Logger       Logger       //日志
 	Tag          *maps.Safe   //标签,用于记录连接的一些信息
 	timeout      *safe.Runner //超时机制
 
@@ -264,6 +264,10 @@ func (this *Client) SetRedial(b ...bool) *Client {
 // Redial 断开重连,是否有必要? 因为可以用其他方式实现
 func (this *Client) Redial() {
 	this.redialSign <- struct{}{}
+}
+
+func (this *Client) Done() <-chan struct{} {
+	return this.Closer.Done()
 }
 
 // run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?

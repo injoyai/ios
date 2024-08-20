@@ -11,7 +11,7 @@ type Event struct {
 	OnConnected    func(c *Client) error                                                             //连接事件
 	OnReconnect    func(ctx context.Context, dial ios.DialFunc) (ios.ReadWriteCloser, string, error) //必须连接事件
 	OnReadBuffer   func(r io.Reader) ([]byte, error)                                                 //读取数据事件,当类型是io.Reader才会触发
-	OnDealMessage  func(c *Client, message ios.Acker)                                                //处理消息事件
+	OnDealMessage  func(c *Client, msg ios.Acker)                                                    //处理消息事件
 	OnWriteMessage func(bs []byte) ([]byte, error)                                                   //写入消息事件
 	OnDisconnect   func(c *Client, err error)                                                        //断开连接事件
 	OnKeyChange    func(c *Client, oldKey string)                                                    //修改标识事件

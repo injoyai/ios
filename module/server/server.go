@@ -57,9 +57,9 @@ func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*
 }
 
 type Server struct {
-	Logger
 	*safe.Closer
 	*safe.Runner
+	Logger        Logger
 	key           string
 	Listener      ios.Listener              //listener
 	Timeout       *timeout.Timeout          //超时机制
@@ -127,7 +127,7 @@ func (this *Server) run(ctx context.Context) error {
 			cli.SetReadWriteCloser(k, c)
 			cli.SetOption(this.clientOptions...)
 
-			cli.Infof("[%s] 新的客户端连接...\n", cli.GetKey())
+			this.Logger.Infof("[%s] 新的客户端连接...\n", cli.GetKey())
 			if cli.Event != nil && cli.Event.OnConnected != nil {
 				if err := cli.Event.OnConnected(cli); err != nil {
 					cli.CloseWithErr(err)

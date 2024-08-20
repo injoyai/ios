@@ -7,6 +7,6 @@ import (
 )
 
 func main() {
-	err := server.Run(tcp.NewListen(":10086"))
+	err := server.Run(tcp.NewListen(10086))
 	logs.PanicErr(err)
 }

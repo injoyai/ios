@@ -1,15 +1,16 @@
 package tcp
 
 import (
+	"fmt"
 	"github.com/injoyai/ios"
 	"net"
 )
 
 var _ ios.Listener = (*Server)(nil)
 
-func NewListen(address string) func() (ios.Listener, error) {
+func NewListen(port int) func() (ios.Listener, error) {
 	return func() (ios.Listener, error) {
-		listener, err := net.Listen("tcp", address)
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 		if err != nil {
 			return nil, err
 		}
