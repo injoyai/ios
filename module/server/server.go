@@ -47,7 +47,7 @@ func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*
 	s.Timeout.SetTimeout(time.Minute * 3) //3分钟超时(3-检查间隔会超时)
 	s.Timeout.SetInterval(time.Minute)    //1分钟检查一次
 	s.Closer.SetCloseFunc(func(err error) error {
-		//关闭全部客户端,是否关闭?,net包是不关闭已连接的客户端
+		//关闭全部客户端,是否关闭?,net包是不关闭已连接的客户端,可以方便热启动
 		//s.CloseAllClient(err)
 		//服务关闭事件
 		s.Logger.Infof("[%s] 关闭服务...\n", listener.Addr())
