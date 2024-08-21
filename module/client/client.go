@@ -1,12 +1,14 @@
 package client
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"github.com/injoyai/base/bytes"
 	"github.com/injoyai/base/maps"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/module/common"
 	"io"
 	"time"
 )
@@ -54,7 +56,7 @@ func NewWithContext(ctx context.Context) *Client {
 		key:        "",
 		Reader:     nil,
 		MoreWriter: nil,
-		Logger:     defaultLogger,
+		Logger:     common.NewLogger(),
 		Info: Info{
 			CreateTime: time.Now(),
 			DialTime:   time.Now(),
@@ -80,13 +82,13 @@ type Client struct {
 	ios.Reader     //IO实例 目前支持ios.AReader,ios.MReader,io.Reader
 	ios.MoreWriter //多个方式写入
 
-	Info                      //基本信息
-	*Event                    //事件
-	*safe.Closer              //关闭
-	*safe.Runner              //运行
-	Logger       Logger       //日志
-	Tag          *maps.Safe   //标签,用于记录连接的一些信息
-	timeout      *safe.Runner //超时机制
+	Info                       //基本信息
+	*Event                     //事件
+	*safe.Closer               //关闭
+	*safe.Runner               //运行
+	Logger       common.Logger //日志
+	Tag          *maps.Safe    //标签,用于记录连接的一些信息
+	timeout      *safe.Runner  //超时机制
 
 	key        string          //自定义标识
 	ctx        context.Context //上下文
@@ -96,12 +98,22 @@ type Client struct {
 	options    []Option        //选项
 }
 
+// SetBuffer 仅对io.Reader有效
+func (this *Client) SetBuffer(size int) *Client {
+	switch v := this.Reader.(type) {
+	case io.Reader:
+		this.Reader = bufio.NewReaderSize(v, size)
+	}
+	return this
+}
+
 func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Option) {
 	this.key = k
 	this.Reader = r
 	this.MoreWriter = ios.NewMoreWriter(r)
 	this.Info.DialTime = time.Now()
 	this.options = op
+	//Runner需要重新申明,老的已经在Closer中停止,才能触发退出运行及重试
 	this.Runner = safe.NewRunnerWithContext(this.ctx, this.run)
 	this.Closer = safe.NewCloser().SetCloseFunc(func(err error) error {
 		//关闭真实实例
@@ -266,6 +278,7 @@ func (this *Client) Redial() {
 	this.redialSign <- struct{}{}
 }
 
+// Done 这个是单次关闭信号
 func (this *Client) Done() <-chan struct{} {
 	return this.Closer.Done()
 }

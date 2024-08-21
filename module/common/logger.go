@@ -1,9 +1,21 @@
-package client
+package common
 
 import (
 	"encoding/hex"
 	"github.com/fatih/color"
 	"github.com/injoyai/logs"
+)
+
+const (
+	LevelNone = 0
+	//LevelTrace = 1
+	LevelDebug = 2
+	LevelWrite = 3
+	LevelRead  = 4
+	LevelInfo  = 5
+	//LevelWarn  = 6
+	LevelError = 7
+	LevelAll   = 999
 )
 
 type Logger interface {
@@ -15,15 +27,20 @@ type Logger interface {
 	WithUTF8()
 	WithHEX()
 	Debug(b ...bool)
+	SetLevel(level int)
 }
 
-var defaultLogger Logger = &logger{
-	err:    logs.NewEntity("错误").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelError).SetColor(color.FgRed),
-	info:   logs.NewEntity("信息").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelInfo).SetColor(color.FgCyan),
-	read:   logs.NewEntity("读取").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelRead).SetColor(color.FgBlue),
-	write:  logs.NewEntity("写入").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelWrite).SetColor(color.FgBlue),
-	encode: func(p []byte) string { return string(p) },
-	debug:  true,
+var DefaultLogger Logger = NewLogger()
+
+func NewLogger() *logger {
+	return &logger{
+		err:    logs.NewEntity("错误").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelError).SetColor(color.FgRed),
+		info:   logs.NewEntity("信息").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelInfo).SetColor(color.FgCyan),
+		read:   logs.NewEntity("读取").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelRead).SetColor(color.FgBlue),
+		write:  logs.NewEntity("写入").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelWrite).SetColor(color.FgBlue),
+		encode: func(p []byte) string { return string(p) },
+		debug:  true,
+	}
 }
 
 type logger struct {
@@ -39,11 +56,12 @@ func (this *logger) Debug(b ...bool) {
 	this.debug = len(b) == 0 || b[0]
 }
 
-func (this *logger) SetLevel(level logs.Level) {
-	this.write.SetLevel(level)
-	this.read.SetLevel(level)
-	this.info.SetLevel(level)
-	this.err.SetLevel(level)
+func (this *logger) SetLevel(level int) {
+	logsLevel := logs.Level(level)
+	this.write.SetLevel(logsLevel)
+	this.read.SetLevel(logsLevel)
+	this.info.SetLevel(logsLevel)
+	this.err.SetLevel(logsLevel)
 }
 
 func (this *logger) WithUTF8() {

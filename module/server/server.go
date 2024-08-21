@@ -7,6 +7,7 @@ import (
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/module/client"
+	"github.com/injoyai/ios/module/common"
 	"sync"
 	"time"
 )
@@ -30,12 +31,12 @@ func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*
 	if err != nil {
 		return nil, err
 	}
-	defaultLogger.Infof("[%s] 开启服务成功...\n", listener.Addr())
 	s := &Server{
-		Logger:   defaultLogger,
-		key:      listener.Addr(),
+		Event:    &Event{},
 		Closer:   safe.NewCloser(),
 		Runner:   safe.NewRunnerWithContext(ctx, nil),
+		key:      listener.Addr(),
+		Logger:   common.NewLogger(),
 		Listener: listener,
 		Timeout: timeout.New().SetDealFunc(func(key interface{}) error {
 			return key.(*client.Client).CloseWithErr(ios.ErrWithTimeout)
@@ -53,14 +54,20 @@ func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*
 	for _, v := range op {
 		v(s)
 	}
+	//放在用户选项之后,方便用户控制是否输出
+	s.Logger.Infof("[%s] 开启服务成功...\n", listener.Addr())
+	if s.Event.OnListened != nil {
+		s.Event.OnListened(s)
+	}
 	return s, nil
 }
 
 type Server struct {
+	*Event
 	*safe.Closer
 	*safe.Runner
-	Logger        Logger
 	key           string
+	Logger        common.Logger             //日志
 	Listener      ios.Listener              //listener
 	Timeout       *timeout.Timeout          //超时机制
 	clientOptions []client.Option           //客户端选项
@@ -124,10 +131,19 @@ func (this *Server) run(ctx context.Context) error {
 		}
 		go func(k string, c ios.ReadWriteCloser) {
 			cli := client.NewWithContext(ctx)
+			cli.Logger = this.Logger
 			cli.SetReadWriteCloser(k, c)
 			cli.SetOption(this.clientOptions...)
 
+			//触发服务端连接事件,是否需要2个事件?
 			this.Logger.Infof("[%s] 新的客户端连接...\n", cli.GetKey())
+			if this.Event != nil && this.Event.OnConnected != nil {
+				if err := this.Event.OnConnected(this, cli); err != nil {
+					cli.CloseWithErr(err)
+					return
+				}
+			}
+			//触发客户端的连接事件,是否需要2个事件?
 			if cli.Event != nil && cli.Event.OnConnected != nil {
 				if err := cli.Event.OnConnected(cli); err != nil {
 					cli.CloseWithErr(err)
@@ -135,12 +151,18 @@ func (this *Server) run(ctx context.Context) error {
 				}
 			}
 
-			//设置修改key事件
-			cli.Event.OnKeyChange = this.onChangeKey
 			//取消重试,客户端是被连接
 			cli.SetRedial(false)
 			//取消读取超时机制,取消客户端,实现服务端
 			cli.SetReadTimeout(0)
+			//设置修改key事件
+			onChangeKey := cli.Event.OnKeyChange
+			cli.Event.OnKeyChange = func(c *client.Client, oldKey string) {
+				if onChangeKey != nil {
+					onChangeKey(c, oldKey)
+				}
+				this.onChangeKey(c, oldKey)
+			}
 			//把已关闭的客户端从缓存中清除
 			onDisconnect := cli.Event.OnDisconnect
 			cli.Event.OnDisconnect = func(c *client.Client, err error) {

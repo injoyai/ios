@@ -4,6 +4,7 @@ import (
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/module/client"
 	"github.com/injoyai/ios/module/client/dial"
+	"github.com/injoyai/ios/module/common"
 	"github.com/injoyai/ios/module/server"
 	"github.com/injoyai/ios/module/server/listen"
 	"github.com/injoyai/logs"
@@ -29,7 +30,7 @@ func Test(n int) {
 		length := 1000 << 20 //传输的数据大小
 		totalDeal := 0
 		listen.RunTCP(10086, func(s *server.Server) {
-			//s.Logger.SetLevel(io.LevelInfo)
+			s.Logger.SetLevel(common.LevelInfo)
 			s.SetOption(func(c *client.Client) {
 				c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
 					defer msg.Ack()
@@ -53,6 +54,7 @@ func Test(n int) {
 		start := time.Now()  //当前时间
 		length := 1000 << 20 //传输的数据大小
 		totalRead := 0
+		buf := make([]byte, 1024)
 		readAll := func(r io.Reader) (bytes []byte, err error) {
 			defer func() {
 				totalRead += len(bytes)
@@ -60,7 +62,6 @@ func Test(n int) {
 					logs.Debugf("[读取]传输耗时: %0.1fMB/s\n", float64(totalRead/(1<<20))/time.Now().Sub(start).Seconds())
 				}
 			}()
-			buf := make([]byte, 1024)
 			n, err := r.Read(buf)
 			if err != nil {
 				return nil, err
@@ -70,9 +71,10 @@ func Test(n int) {
 
 		totalDeal := 0
 		go listen.RunTCP(20145, func(s *server.Server) {
-			//s.SetLevel(io.LevelError)
+			s.Logger.SetLevel(common.LevelError)
 			s.Logger.Debug(false)
 			s.SetOption(func(c *client.Client) {
+				c.SetBuffer(1024 * 10)
 				c.Event.OnReadBuffer = readAll
 				c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
 					totalDeal += len(msg.Payload())
@@ -87,12 +89,11 @@ func Test(n int) {
 		<-time.After(time.Second)
 		<-dial.RedialTCP("127.0.0.1:20145", func(c *client.Client) {
 			c.Logger.Debug(false)
-			//c.SetLevelInfo()
+			c.Logger.SetLevel(common.LevelInfo)
 			data := make([]byte, length)
 			start = time.Now()
 			c.Write(data)
 			logs.Debugf("[发送]传输耗时: %0.1fMB/s\n", float64(length/(1<<20))/time.Now().Sub(start).Seconds())
-			start = time.Now()
 			c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
 				logs.Debug(msg)
 			}
