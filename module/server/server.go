@@ -49,6 +49,11 @@ func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*
 	s.Closer.SetCloseFunc(func(err error) error {
 		//关闭全部客户端,是否关闭?,net包是不关闭已连接的客户端
 		//s.CloseAllClient(err)
+		//服务关闭事件
+		s.Logger.Infof("[%s] 关闭服务...\n", listener.Addr())
+		if s.Event != nil && s.Event.OnClose != nil {
+			s.Event.OnClose(s, err)
+		}
 		return listener.Close()
 	})
 	for _, v := range op {
