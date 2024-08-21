@@ -63,3 +63,18 @@ func SplitBytesByLength(p []byte, max int) [][]byte {
 	list = append(list, p)
 	return list
 }
+
+// Pipe 一个双向通道
+func Pipe() (io.ReadWriteCloser, io.ReadWriteCloser) {
+	r1, w1 := io.Pipe()
+	r2, w2 := io.Pipe()
+	type T struct {
+		io.Reader
+		io.Writer
+		io.Closer
+	}
+	i1 := T{Reader: r1, Writer: w2, Closer: MultiCloser(r1, w2)}
+	i2 := T{Reader: r2, Writer: w1, Closer: MultiCloser(r2, w1)}
+	return i1, i2
+
+}
