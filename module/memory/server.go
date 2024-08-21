@@ -2,22 +2,32 @@ package memory
 
 import (
 	"fmt"
-	"io"
+	"github.com/injoyai/ios"
 )
 
-func Listen(key string) *Server {
-	s, _ := manage.GetOrSetByHandler(key, func() (interface{}, error) {
-		return &Server{Ch: make(chan *Client, 1)}, nil
-	})
-	manage.Set(s, s)
-	return s.(*Server)
+func NewListen(key string) func() (ios.Listener, error) {
+	return func() (ios.Listener, error) {
+		s, _ := manage.GetOrSetByHandler(key, func() (interface{}, error) {
+			return &Server{
+				key: key,
+				Ch:  make(chan *Client, 1),
+			}, nil
+		})
+		manage.Set(s, s)
+		return s.(*Server), nil
+	}
 }
 
 type Server struct {
-	Ch chan *Client
+	key string
+	Ch  chan *Client
 }
 
-func (this *Server) Accept() (io.ReadWriteCloser, string, error) {
+func (this *Server) Addr() string {
+	return this.key
+}
+
+func (this *Server) Accept() (ios.ReadWriteCloser, string, error) {
 	c := <-this.Ch
 	return c.sIO(), fmt.Sprintf("%p", c), nil
 }
