@@ -61,8 +61,8 @@ func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*
 	}
 	//放在用户选项之后,方便用户控制是否输出
 	s.Logger.Infof("[%s] 开启服务成功...\n", listener.Addr())
-	if s.Event.OnListened != nil {
-		s.Event.OnListened(s)
+	if s.Event.OnOpen != nil {
+		s.Event.OnOpen(s)
 	}
 	return s, nil
 }
