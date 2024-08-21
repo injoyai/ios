@@ -29,7 +29,7 @@ func Test(n int) {
 		var start time.Time  //当前时间
 		length := 1000 << 20 //传输的数据大小
 		totalDeal := 0
-		listen.RunTCP(10086, func(s *server.Server) {
+		listen.TCPRun(10086, func(s *server.Server) {
 			s.Logger.SetLevel(common.LevelInfo)
 			s.SetOption(func(c *client.Client) {
 				c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
@@ -70,7 +70,7 @@ func Test(n int) {
 		}
 
 		totalDeal := 0
-		go listen.RunTCP(20145, func(s *server.Server) {
+		go listen.TCPRun(20145, func(s *server.Server) {
 			s.Logger.SetLevel(common.LevelError)
 			s.Logger.Debug(false)
 			s.SetOption(func(c *client.Client) {
