@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/DrmagicE/gmqtt"
+	_ "github.com/DrmagicE/gmqtt/persistence"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 	"github.com/DrmagicE/gmqtt/server"
+	_ "github.com/DrmagicE/gmqtt/topicalias/fifo"
+	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
 	"net"
 )
@@ -55,13 +58,16 @@ func NewNetListen(l net.Listener) ios.ListenFunc {
 			return nil, err
 		}
 
-		go srv.Run()
-
 		s := &Server{
-			addr: l.Addr().String(),
-			ch:   ch,
-			stop: srv.Stop,
+			addr:   l.Addr().String(),
+			ch:     ch,
+			stop:   srv.Stop,
+			closer: safe.NewCloser(),
 		}
+
+		go func() {
+			s.closer.CloseWithErr(srv.Run())
+		}()
 
 		return s, nil
 	}
@@ -87,9 +93,10 @@ func (c *Conn) Close() error {
 }
 
 type Server struct {
-	addr string
-	ch   chan *Conn
-	stop func(ctx context.Context) error
+	addr   string
+	ch     chan *Conn
+	stop   func(ctx context.Context) error
+	closer *safe.Closer
 }
 
 func (this *Server) Close() error {
