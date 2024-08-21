@@ -12,16 +12,19 @@ import (
 
 func NewListen(port int) func() (ios.Listener, error) {
 	return func() (ios.Listener, error) {
-
-		addr := fmt.Sprintf(":%d", port)
-		l, err := net.Listen("tcp", addr)
+		l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 		if err != nil {
 			return nil, err
 		}
+		return NewNetListen(l)()
+	}
+}
 
+func NewNetListen(l net.Listener) func() (ios.Listener, error) {
+	return func() (ios.Listener, error) {
 		ch := make(chan *Conn)
 		s := &Server{
-			addr: addr,
+			addr: l.Addr().String(),
 			ch:   ch,
 			srv: &http.Server{
 				Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

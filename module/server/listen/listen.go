@@ -2,6 +2,7 @@ package listen
 
 import (
 	"github.com/injoyai/ios/module/memory"
+	"github.com/injoyai/ios/module/mqtt"
 	"github.com/injoyai/ios/module/server"
 	"github.com/injoyai/ios/module/tcp"
 	"github.com/injoyai/ios/module/websocket"
@@ -29,4 +30,12 @@ func Websocket(port int, op ...server.Option) (*server.Server, error) {
 
 func WebsocketRun(port int, op ...server.Option) error {
 	return server.Run(websocket.NewListen(port), op...)
+}
+
+func MQTT(port int, op ...server.Option) (*server.Server, error) {
+	return server.New(mqtt.NewListen(port), op...)
+}
+
+func MQTTRun(port int, op ...server.Option) error {
+	return server.Run(mqtt.NewListen(port), op...)
 }
