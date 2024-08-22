@@ -80,7 +80,8 @@ type Server struct {
 	clientMu      sync.RWMutex              //锁
 }
 
-func (this *Server) SetOption(op ...client.Option) *Server {
+// SetClientOption 设置客户端选项
+func (this *Server) SetClientOption(op ...client.Option) *Server {
 	this.clientOptions = append(this.clientOptions, op...)
 	return this
 }

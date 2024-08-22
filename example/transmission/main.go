@@ -31,7 +31,7 @@ func Test(n int) {
 		totalDeal := 0
 		listen.TCPRun(10086, func(s *server.Server) {
 			s.Logger.SetLevel(common.LevelInfo)
-			s.SetOption(func(c *client.Client) {
+			s.SetClientOption(func(c *client.Client) {
 				c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
 					defer msg.Ack()
 					if start.IsZero() {
@@ -73,7 +73,7 @@ func Test(n int) {
 		go listen.TCPRun(20145, func(s *server.Server) {
 			s.Logger.SetLevel(common.LevelError)
 			s.Logger.Debug(false)
-			s.SetOption(func(c *client.Client) {
+			s.SetClientOption(func(c *client.Client) {
 				c.SetBuffer(1024 * 10)
 				c.Event.OnReadBuffer = readAll
 				c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
