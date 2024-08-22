@@ -9,6 +9,7 @@ import (
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 	"github.com/DrmagicE/gmqtt/server"
 	_ "github.com/DrmagicE/gmqtt/topicalias/fifo"
+	"github.com/injoyai/base/maps"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
 	"net"
@@ -27,20 +28,49 @@ func NewListen(port int) ios.ListenFunc {
 func NewNetListen(l net.Listener) ios.ListenFunc {
 	return func() (ios.Listener, error) {
 
-		ch := make(chan *Conn)
+		s := &Server{
+			addr:   l.Addr().String(),
+			ch:     make(chan *Conn),
+			closer: safe.NewCloser(),
+			m:      maps.NewSafe(),
+		}
+
 		srv := server.New(server.WithTCPListener(l))
 		if err := srv.Init(server.WithHook(server.Hooks{
 			OnConnected: func(ctx context.Context, client server.Client) {
 				//订阅clientID,conn
-				srv.SubscriptionService().Subscribe(client.ClientOptions().ClientID, &gmqtt.Subscription{
-					TopicFilter: client.ClientOptions().ClientID,
+				clientID := client.ClientOptions().ClientID
+				srv.SubscriptionService().Subscribe(clientID, &gmqtt.Subscription{
+					TopicFilter: clientID,
 					QoS:         packets.Qos0,
 				})
-				ch <- &Conn{
-					ClientID:  client.ClientOptions().ClientID,
+				conn := &Conn{
+					ClientID:  clientID,
 					Client:    client,
 					Publisher: srv.Publisher(),
+					Closer: safe.NewCloser().SetCloseFunc(func(err error) error {
+						client.Close()
+						return nil
+					}),
+					ch: make(chan []byte),
 				}
+				s.ch <- conn
+				s.m.Set(clientID, conn)
+			},
+			OnClosed: func(ctx context.Context, client server.Client, err error) {
+				//取消订阅
+				clientID := client.ClientOptions().ClientID
+				srv.SubscriptionService().UnsubscribeAll(clientID)
+				if conn, _ := s.m.GetAndDel(clientID); conn != nil {
+					conn.(*Conn).CloseWithErr(err)
+				}
+			},
+			OnMsgArrived: func(ctx context.Context, client server.Client, msg *server.MsgArrivedRequest) error {
+				clientID := client.ClientOptions().ClientID
+				if conn := s.m.MustGet(clientID); conn != nil {
+					conn.(*Conn).ch <- msg.Message.Payload
+				}
+				return nil
 			},
 			OnSubscribe: func(ctx context.Context, client server.Client, req *server.SubscribeRequest) error {
 				if req == nil || req.Subscribe == nil {
@@ -58,12 +88,7 @@ func NewNetListen(l net.Listener) ios.ListenFunc {
 			return nil, err
 		}
 
-		s := &Server{
-			addr:   l.Addr().String(),
-			ch:     ch,
-			stop:   srv.Stop,
-			closer: safe.NewCloser(),
-		}
+		s.stop = srv.Stop
 
 		go func() {
 			s.closer.CloseWithErr(srv.Run())
@@ -74,12 +99,29 @@ func NewNetListen(l net.Listener) ios.ListenFunc {
 }
 
 type Conn struct {
-	ClientID string
-	server.Client
-	server.Publisher
+	ClientID  string
+	Client    server.Client
+	Publisher server.Publisher
+	*safe.Closer
+	ch chan []byte
+}
+
+func (c *Conn) ReadMessage() ([]byte, error) {
+	select {
+	case <-c.Closer.Done():
+		return nil, c.Closer.Err()
+	case bs, ok := <-c.ch:
+		if !ok {
+			return nil, errors.New("conn closed")
+		}
+		return bs, nil
+	}
 }
 
 func (c *Conn) Write(p []byte) (n int, err error) {
+	if c.Closer.Closed() {
+		return 0, c.Closer.Err()
+	}
 	c.Publisher.Publish(&gmqtt.Message{
 		Topic:   c.ClientID,
 		Payload: p,
@@ -87,16 +129,12 @@ func (c *Conn) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (c *Conn) Close() error {
-	c.Client.Close()
-	return nil
-}
-
 type Server struct {
 	addr   string
 	ch     chan *Conn
 	stop   func(ctx context.Context) error
 	closer *safe.Closer
+	m      *maps.Safe
 }
 
 func (this *Server) Close() error {

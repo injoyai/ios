@@ -12,7 +12,7 @@ import (
 func main() {
 	logs.Err(listen.MQTTRun(11883, func(s *server.Server) {
 		s.SetOption(func(c *client.Client) {
-			c.TimerWriter(time.Second*5, func(w ios.MoreWriter) error {
+			c.GoTimerWriter(time.Second*5, func(w ios.MoreWriter) error {
 				return w.WriteAny(time.Now().String())
 			})
 		})

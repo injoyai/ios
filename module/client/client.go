@@ -254,8 +254,9 @@ func (this *Client) Timer(t time.Duration, f Option) {
 	}
 }
 
-func (this *Client) TimerWriter(t time.Duration, f func(w ios.MoreWriter) error) {
-	this.Timer(t, func(c *Client) {
+// GoTimerWriter 定时写入,容易忘记使用协程,然后阻塞,索性直接用协程
+func (this *Client) GoTimerWriter(t time.Duration, f func(w ios.MoreWriter) error) {
+	go this.Timer(t, func(c *Client) {
 		c.CloseWithErr(f(c))
 	})
 }
