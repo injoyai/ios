@@ -30,8 +30,6 @@ type Logger interface {
 	SetLevel(level int)
 }
 
-var DefaultLogger Logger = NewLogger()
-
 func NewLogger() *logger {
 	return &logger{
 		err:    logs.NewEntity("错误").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelError).SetColor(color.FgRed),

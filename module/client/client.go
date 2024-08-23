@@ -66,7 +66,7 @@ func NewWithContext(ctx context.Context) *Client {
 		Runner:     nil,
 		Tag:        maps.NewSafe(),
 		timeout:    safe.NewRunnerWithContext(ctx, nil),
-		ctx:        ctx,
+		Ctx:        ctx,
 		redialSign: make(chan struct{}),
 		dial:       nil,
 		options:    nil,
@@ -82,20 +82,20 @@ type Client struct {
 	ios.Reader     //IO实例 目前支持ios.AReader,ios.MReader,io.Reader
 	ios.MoreWriter //多个方式写入
 
-	Info                       //基本信息
-	*Event                     //事件
-	*safe.Closer               //关闭
-	*safe.Runner               //运行
-	Logger       common.Logger //日志
-	Tag          *maps.Safe    //标签,用于记录连接的一些信息
-	timeout      *safe.Runner  //超时机制
+	Info                         //基本信息
+	*Event                       //事件
+	*safe.Closer                 //关闭
+	*safe.Runner                 //运行
+	Logger       common.Logger   //日志
+	Tag          *maps.Safe      //标签,用于记录连接的一些信息
+	Ctx          context.Context //上下文
+	timeout      *safe.Runner    //超时机制
 
-	key        string          //自定义标识
-	ctx        context.Context //上下文
-	redial     bool            //是否自动重连
-	redialSign chan struct{}   //重连信号,未设置自动重连也可以手动重连
-	dial       ios.DialFunc    //连接函数
-	options    []Option        //选项
+	key        string        //自定义标识
+	redial     bool          //是否自动重连
+	redialSign chan struct{} //重连信号,未设置自动重连也可以手动重连
+	dial       ios.DialFunc  //连接函数
+	options    []Option      //选项
 }
 
 // SetBuffer 仅对io.Reader有效
@@ -114,7 +114,7 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 	this.Info.DialTime = time.Now()
 	this.options = op
 	//Runner需要重新申明,老的已经在Closer中停止,才能触发退出运行及重试
-	this.Runner = safe.NewRunnerWithContext(this.ctx, this.run)
+	this.Runner = safe.NewRunnerWithContext(this.Ctx, this.run)
 	this.Closer = safe.NewCloser().SetCloseFunc(func(err error) error {
 		//关闭真实实例
 		if er := r.Close(); er != nil {
@@ -179,15 +179,15 @@ func (this *Client) doDial(must bool) (ios.ReadWriteCloser, string, error) {
 		return nil, "", errors.New("handler is nil")
 	}
 	if !must {
-		return this.dial(this.ctx)
+		return this.dial(this.Ctx)
 	}
 	this.Logger.Infof("等待连接服务...\n")
 	if this.Event != nil && this.Event.OnReconnect != nil {
-		return this.Event.OnReconnect(this.ctx, this.dial)
+		return this.Event.OnReconnect(this, this.dial)
 	}
 	//防止用户设置错了重试,再外层在加上一层退避重试,是否需要? 可能想重试10次就不重试就无法实现了
 	f := WithReconnectRetreat(time.Second*2, time.Second*32, 2)
-	return f(this.ctx, this.dial)
+	return f(this, this.dial)
 }
 
 // SetReadTimeout 设置读取超时,即距离上次读取数据时间超过该设置值,则会关闭连接,0表示不超时
@@ -263,7 +263,7 @@ func (this *Client) GoTimerWriter(t time.Duration, f func(w ios.MoreWriter) erro
 
 // CloseAll 关闭连接,并不再重试
 func (this *Client) CloseAll() error {
-	this.redial = false
+	this.SetRedial(false)
 	return this.Closer.Close()
 }
 
