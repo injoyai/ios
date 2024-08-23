@@ -2,7 +2,6 @@ package client
 
 import "C"
 import (
-	"fmt"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/module/common"
 	"io"
@@ -17,6 +16,7 @@ type Event struct {
 	OnDealMessage  func(c *Client, msg ios.Acker)                                          //处理消息事件
 	OnWriteMessage func(bs []byte) ([]byte, error)                                         //写入消息事件
 	OnKeyChange    func(c *Client, oldKey string)                                          //修改标识事件
+	OnDealErr      func(c *Client, err error) error                                        //修改错误信息事件,例翻译成中文
 }
 
 type Info struct {
@@ -81,11 +81,7 @@ func WithReconnectRetreat(start, max time.Duration, multi uint8) func(c *Client,
 				if wait >= max {
 					wait = max
 				}
-				key := c.GetKey()
-				if key == "" {
-					key = fmt.Sprintf("%p", c)
-				}
-				c.Logger.Errorf("[%s] %v,等待%d秒重试\n", key, common.DealErr(err), wait/time.Second)
+				c.Logger.Errorf("[%s] %v,等待%d秒重试\n", c.GetKey(), common.DealErr(err), wait/time.Second)
 			}
 		}
 	}

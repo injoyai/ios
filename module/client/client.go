@@ -61,7 +61,9 @@ func NewWithContext(ctx context.Context) *Client {
 			CreateTime: time.Now(),
 			DialTime:   time.Now(),
 		},
-		Event:      &Event{},
+		Event: &Event{
+			OnDealErr: func(c *Client, err error) error { return common.DealErr(err) },
+		},
 		Closer:     nil,
 		Runner:     nil,
 		Tag:        maps.NewSafe(),
@@ -257,7 +259,11 @@ func (this *Client) Timer(t time.Duration, f Option) {
 // GoTimerWriter 定时写入,容易忘记使用协程,然后阻塞,索性直接用协程
 func (this *Client) GoTimerWriter(t time.Duration, f func(w ios.MoreWriter) error) {
 	go this.Timer(t, func(c *Client) {
-		c.CloseWithErr(f(c))
+		err := f(c)
+		if this.Event != nil && this.Event.OnDealErr != nil {
+			err = this.Event.OnDealErr(c, err)
+		}
+		c.CloseWithErr(err)
 	})
 }
 
@@ -344,6 +350,9 @@ func (this *Client) run(ctx context.Context) (err error) {
 			}
 
 			if err != nil {
+				if this.Event != nil && this.Event.OnDealErr != nil {
+					err = this.Event.OnDealErr(this, err)
+				}
 				this.CloseWithErr(err)
 				//交给closer进行处理接下来的逻辑,固这里不使用return
 				//例如重新连接等操作,这样只用写一个地方,简化代码
