@@ -92,35 +92,7 @@ func CopyBufferWith(w io.Writer, r Reader, buf []byte, f func(p []byte) ([]byte,
 }
 
 func ReadBuffer(r Reader, buf []byte) (Acker, error) {
-	switch v := r.(type) {
-	case io.Reader:
-		if buf == nil {
-			size := 32 * 1024
-			if l, ok := r.(*io.LimitedReader); ok && int64(size) > l.N {
-				if l.N < 1 {
-					size = 1
-				} else {
-					size = int(l.N)
-				}
-			}
-			buf = make([]byte, size)
-		}
-
-		n, err := v.Read(buf)
-		if err != nil {
-			return nil, err
-		}
-		return Ack(buf[:n]), nil
-
-	case MReader:
-		bs, err := v.ReadMessage()
-		return Ack(bs), err
-
-	case AReader:
-		return v.ReadAck()
-
-	default:
-		return nil, fmt.Errorf("未知类型: %T, 未实现[Reader|MReader|AReader]", r)
-
-	}
+	readFunc := NewReadWithBuffer(buf)
+	bs, err := readFunc(r)
+	return Ack(bs), err
 }

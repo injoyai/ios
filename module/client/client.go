@@ -334,7 +334,8 @@ func (this *Client) run(ctx context.Context) (err error) {
 			case io.Reader:
 				var bs []byte
 				if this.Event.OnReadBuffer == nil {
-					this.Event.OnReadBuffer = ios.NewReadWithBuffer(make([]byte, 1024*4))
+					f := ios.NewReadWithBuffer(make([]byte, 1024*4))
+					this.Event.OnReadBuffer = func(r io.Reader) ([]byte, error) { return f(r) }
 				}
 				bs, err = this.Event.OnReadBuffer(r)
 				ack = ios.Ack(bs)
