@@ -67,8 +67,8 @@ func SplitBytesByLength(p []byte, max int) [][]byte {
 
 // Pipe 一个双向通道
 func Pipe() (io.ReadWriteCloser, io.ReadWriteCloser) {
-	r1 := chans.NewIO()
-	r2 := chans.NewIO()
+	r1 := chans.NewIO(0)
+	r2 := chans.NewIO(0)
 	type T struct {
 		io.Reader
 		io.Writer

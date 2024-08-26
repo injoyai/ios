@@ -560,8 +560,8 @@ github.com/iancoleman/strcase v0.1.2/go.mod h1:SK73tn/9oHe+/Y0h39VT4UCxmurVJkR5N
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
-github.com/injoyai/base v1.0.15 h1:KoA6jKVUTf7qe2JdHVSGm/aJ+6oBmbMfGQyXPH75BSk=
-github.com/injoyai/base v1.0.15/go.mod h1:2JSv8ndJ/FmKyazfhDBewzylEbVfJV0EE/r6kOvnzwU=
+github.com/injoyai/base v1.0.16 h1:Eax2wUgnyse8gBxU28UMhzQ5h5byUOhpxHVfqqJWCn8=
+github.com/injoyai/base v1.0.16/go.mod h1:2JSv8ndJ/FmKyazfhDBewzylEbVfJV0EE/r6kOvnzwU=
 github.com/injoyai/conv v1.1.5/go.mod h1:PYoJcbqaz4eyQUovzErRFCuDSPGB4L07AvdmFsTrTew=
 github.com/injoyai/conv v1.1.10 h1:LefmOA4SKTEw6gGHXZ6UT8n2K+OzCttYSW8lVmvgQd8=
 github.com/injoyai/conv v1.1.10/go.mod h1:PYoJcbqaz4eyQUovzErRFCuDSPGB4L07AvdmFsTrTew=
