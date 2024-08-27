@@ -153,4 +153,6 @@ type ListenFunc func() (Listener, error)
 
 type WriteTo func(w io.Writer) error
 
-type ReadFrom func(r Reader) ([]byte, error)
+//type ReadFrom func(r Reader) ([]byte, error)
+
+//type Read func(r io.Reader) ([]byte, error)

@@ -28,6 +28,11 @@ func NewReadKB(n int) func(r io.Reader) ([]byte, error) {
 	return NewRead(make([]byte, 1024*n))
 }
 
+// NewRead4KB 新建读取函数,按4KB读取
+func NewRead4KB() func(r io.Reader) ([]byte, error) {
+	return NewRead(make([]byte, 1024*4))
+}
+
 // NewReadMost 新建读取函数,按最大字节数读取
 func NewReadMost(max int) func(r io.Reader) ([]byte, error) {
 	return NewRead(make([]byte, max))
