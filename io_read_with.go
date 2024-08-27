@@ -8,9 +8,15 @@ import (
 )
 
 func NewRead(buf []byte) func(r io.Reader) ([]byte, error) {
-	f := NewReadFrom(buf)
+	if buf == nil {
+		buf = make([]byte, 1024*4)
+	}
 	return func(r io.Reader) ([]byte, error) {
-		return f(r)
+		n, err := r.Read(buf)
+		if err != nil {
+			return nil, err
+		}
+		return buf[:n], nil
 	}
 }
 
