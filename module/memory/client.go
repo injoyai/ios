@@ -60,10 +60,7 @@ func (this *Client) ReadAck() (ios.Acker, error) {
 		return nil, this.Closer.Err()
 	}
 	if this.Handler == nil {
-		f := ios.NewReadWithBuffer(make([]byte, 1024*4))
-		this.Handler = func(r io.Reader) ([]byte, error) {
-			return f(r)
-		}
+		this.Handler = ios.NewRead(make([]byte, 1024*4))
 	}
 	bs, err := this.Handler(this.output)
 	return ios.Ack(bs), err

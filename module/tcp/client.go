@@ -38,10 +38,7 @@ type Client struct {
 
 func (this *Client) ReadAck() (ios.Acker, error) {
 	if this.Handler == nil {
-		f := ios.NewReadWithBuffer(make([]byte, 1024*4))
-		this.Handler = func(r io.Reader) ([]byte, error) {
-			return f(r)
-		}
+		this.Handler = ios.NewRead(make([]byte, 1024*4))
 	}
 	bs, err := this.Handler(this.Conn)
 	return ios.Ack(bs), err

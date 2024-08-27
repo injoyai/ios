@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"github.com/injoyai/base/bytes"
 	"github.com/injoyai/base/maps"
 	"github.com/injoyai/base/safe"
@@ -334,8 +335,7 @@ func (this *Client) run(ctx context.Context) (err error) {
 			case io.Reader:
 				var bs []byte
 				if this.Event.OnReadBuffer == nil {
-					f := ios.NewReadWithBuffer(make([]byte, 1024*4))
-					this.Event.OnReadBuffer = func(r io.Reader) ([]byte, error) { return f(r) }
+					this.Event.OnReadBuffer = ios.NewRead(make([]byte, 1024*4))
 				}
 				bs, err = this.Event.OnReadBuffer(r)
 				ack = ios.Ack(bs)
@@ -347,6 +347,9 @@ func (this *Client) run(ctx context.Context) (err error) {
 
 			case ios.AReader:
 				ack, err = r.ReadAck()
+
+			default:
+				err = fmt.Errorf("未知类型: %T, 未实现[Reader|MReader|AReader]", r)
 
 			}
 

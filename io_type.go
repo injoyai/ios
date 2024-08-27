@@ -146,3 +146,9 @@ func (this Ack) Payload() []byte { return this }
 type DialFunc func(ctx context.Context) (ReadWriteCloser, string, error)
 
 type ListenFunc func() (Listener, error)
+
+type ReadFrom func(r Reader) ([]byte, error)
+
+type WriteTo func(w io.Writer) error
+
+type Read func(r io.Reader) ([]byte, error)

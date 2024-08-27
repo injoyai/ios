@@ -7,16 +7,43 @@ import (
 	"io"
 )
 
-func NewAReadWithBuffer(buf []byte) func(r Reader) (Acker, error) {
-	f := NewReadWithBuffer(buf)
-	return func(r Reader) (Acker, error) {
-		bs, err := f(r)
-		return Ack(bs), err
+func NewRead(buf []byte) func(r io.Reader) ([]byte, error) {
+	if buf == nil {
+		buf = make([]byte, 1024*4)
+	}
+	return func(r io.Reader) ([]byte, error) {
+		n, err := r.Read(buf)
+		if err != nil {
+			return nil, err
+		}
+		return buf[:n], nil
 	}
 }
 
-// NewReadWithBuffer 读取函数
-func NewReadWithBuffer(buf []byte) func(r Reader) ([]byte, error) {
+// NewReadLeast 新建读取函数,至少读取设置的字节
+func NewReadLeast(least int) func(r io.Reader) ([]byte, error) {
+	buf := make([]byte, least)
+	return func(r io.Reader) ([]byte, error) {
+		_, err := io.ReadAtLeast(r, buf, least)
+		return buf, err
+	}
+}
+
+// NewReadKB 新建读取函数,按KB读取
+func NewReadKB(n int) func(r io.Reader) ([]byte, error) {
+	return NewRead(make([]byte, 1024*n))
+}
+
+// NewReadMost 新建读取函数,按最大字节数读取
+func NewReadMost(max int) func(r io.Reader) ([]byte, error) {
+	return NewRead(make([]byte, max))
+}
+
+// NewReadFromWithRead 读取函数
+func NewReadFromWithRead(f Read) func(r Reader) ([]byte, error) {
+	if f == nil {
+		f = NewRead(make([]byte, 1024*4))
+	}
 	var buffer *bufio.Reader
 	return func(r Reader) ([]byte, error) {
 		switch v := r.(type) {
@@ -32,27 +59,13 @@ func NewReadWithBuffer(buf []byte) func(r Reader) ([]byte, error) {
 			return a.Payload(), nil
 
 		case *bufio.Reader:
-			if buf == nil {
-				buf = make([]byte, 1024*4)
-			}
-			n, err := v.Read(buf)
-			if err != nil {
-				return nil, err
-			}
-			return buf[:n], nil
+			return f(v)
 
 		case io.Reader:
 			if buffer == nil {
 				buffer = bufio.NewReaderSize(v, 1024*4)
 			}
-			if buf == nil {
-				buf = make([]byte, 1024*4)
-			}
-			n, err := buffer.Read(buf)
-			if err != nil {
-				return nil, err
-			}
-			return buf[:n], nil
+			return f(buffer)
 
 		default:
 			return nil, fmt.Errorf("未知类型: %T, 未实现[Reader|MReader|AReader]", r)
@@ -60,6 +73,11 @@ func NewReadWithBuffer(buf []byte) func(r Reader) ([]byte, error) {
 		}
 
 	}
+}
+
+// NewReadFrom 读取函数
+func NewReadFrom(buf []byte) func(r Reader) ([]byte, error) {
+	return NewReadFromWithRead(NewRead(buf))
 }
 
 type Bytes []byte
@@ -74,19 +92,14 @@ func (this Bytes) ReadFrom(r io.Reader) ([]byte, error) {
 
 // ReadByte 读取一字节
 func ReadByte(r io.Reader) (byte, error) {
-	if i, ok := r.(io.ByteReader); ok {
-		return i.ReadByte()
+	switch v := r.(type) {
+	case io.ByteReader:
+		return v.ReadByte()
+	default:
+		b := make([]byte, 1)
+		_, err := io.ReadAtLeast(r, b, 1)
+		return b[0], err
 	}
-	b := make([]byte, 1)
-	_, err := io.ReadAtLeast(r, b, 1)
-	return b[0], err
-}
-
-// ReadLeast 读取最少least字节,除非返回错误
-func ReadLeast(r io.Reader, least int) ([]byte, error) {
-	buf := make([]byte, least)
-	n, err := io.ReadAtLeast(r, buf, least)
-	return buf[:n], err
 }
 
 // ReadPrefix 读取Reader符合的头部,返回成功(nil),或者错误
@@ -102,11 +115,11 @@ func ReadPrefix(r io.Reader, prefix []byte) ([]byte, error) {
 			}
 			cache = append(cache, b)
 		default:
-			n, err := r.Read(b1)
+			_, err := io.ReadAtLeast(r, b1, 1)
 			if err != nil {
 				return cache, err
 			}
-			cache = append(cache, b1[:n]...)
+			cache = append(cache, b1[0])
 		}
 		if cache[len(cache)-1] == prefix[index] {
 			index++
