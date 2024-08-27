@@ -127,6 +127,10 @@ type AReadFunc func() (Acker, error)
 
 func (this AReadFunc) ReadAck() (Acker, error) { return this() }
 
+type MReadFunc func() ([]byte, error)
+
+func (this MReadFunc) ReadMessage() ([]byte, error) { return this() }
+
 // WriteFunc 写入函数
 type WriteFunc func(p []byte) (int, error)
 
@@ -147,8 +151,6 @@ type DialFunc func(ctx context.Context) (ReadWriteCloser, string, error)
 
 type ListenFunc func() (Listener, error)
 
-type ReadFrom func(r Reader) ([]byte, error)
-
 type WriteTo func(w io.Writer) error
 
-type Read func(r io.Reader) ([]byte, error)
+type ReadFrom func(r Reader) ([]byte, error)

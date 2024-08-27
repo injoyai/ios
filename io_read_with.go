@@ -8,15 +8,9 @@ import (
 )
 
 func NewRead(buf []byte) func(r io.Reader) ([]byte, error) {
-	if buf == nil {
-		buf = make([]byte, 1024*4)
-	}
+	f := NewReadFrom(buf)
 	return func(r io.Reader) ([]byte, error) {
-		n, err := r.Read(buf)
-		if err != nil {
-			return nil, err
-		}
-		return buf[:n], nil
+		return f(r)
 	}
 }
 
@@ -39,11 +33,8 @@ func NewReadMost(max int) func(r io.Reader) ([]byte, error) {
 	return NewRead(make([]byte, max))
 }
 
-// NewReadFromWithRead 读取函数
-func NewReadFromWithRead(f Read) func(r Reader) ([]byte, error) {
-	if f == nil {
-		f = NewRead(make([]byte, 1024*4))
-	}
+// NewReadFromWithHandler 读取函数
+func NewReadFromWithHandler(f func(r io.Reader) ([]byte, error)) func(r Reader) ([]byte, error) {
 	var buffer *bufio.Reader
 	return func(r Reader) ([]byte, error) {
 		switch v := r.(type) {
@@ -65,6 +56,16 @@ func NewReadFromWithRead(f Read) func(r Reader) ([]byte, error) {
 			if buffer == nil {
 				buffer = bufio.NewReaderSize(v, 1024*4)
 			}
+			if f == nil {
+				buf := make([]byte, 1024*4)
+				f = func(r io.Reader) ([]byte, error) {
+					n, err := r.Read(buf)
+					if err != nil {
+						return nil, err
+					}
+					return buf[:n], nil
+				}
+			}
 			return f(buffer)
 
 		default:
@@ -77,7 +78,16 @@ func NewReadFromWithRead(f Read) func(r Reader) ([]byte, error) {
 
 // NewReadFrom 读取函数
 func NewReadFrom(buf []byte) func(r Reader) ([]byte, error) {
-	return NewReadFromWithRead(NewRead(buf))
+	if buf == nil {
+		buf = make([]byte, 1024*4)
+	}
+	return NewReadFromWithHandler(func(r io.Reader) ([]byte, error) {
+		n, err := r.Read(buf)
+		if err != nil {
+			return nil, err
+		}
+		return buf[:n], nil
+	})
 }
 
 type Bytes []byte
