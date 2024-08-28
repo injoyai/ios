@@ -1,10 +1,10 @@
 package frame
 
 import (
-	"bufio"
 	"compress/gzip"
 	"fmt"
 	"github.com/injoyai/base/bytes"
+	"github.com/injoyai/base/maps"
 	"github.com/injoyai/conv"
 	"github.com/injoyai/ios/module/client"
 	"github.com/injoyai/logs"
@@ -61,9 +61,6 @@ const (
 )
 const (
 	// 内置功能码,待定
-
-	FunctionRead  uint8 = 0x00
-	FunctionWrite uint8 = 0x80
 
 	FunctionCustom      uint8 = 0x0 //自定义
 	FunctionPing        uint8 = 0x1 //测试连接,无数据
@@ -213,16 +210,16 @@ func (this *Frame) GetFunction() uint8 {
 	return this.Function & 0x7F
 }
 
-func (this *Frame) ReadWriteTag(c *client.Client, key string) error {
+func (this *Frame) dealWithTag(w io.Writer, tag *maps.Safe, key string) error {
 	if this.IsCall() {
 		if this.IsRead() {
-			if _, err := c.Write(this.Resp(conv.Bytes(c.Tag.GetString(key))).Bytes()); err != nil {
+			if _, err := w.Write(this.Resp(conv.Bytes(tag.GetString(key))).Bytes()); err != nil {
 				return err
 			}
 		}
 		if this.IsWrite() {
-			c.Tag.Set(key, string(this.Data))
-			if _, err := c.Write(this.Resp(nil).Bytes()); err != nil {
+			tag.Set(key, string(this.Data))
+			if _, err := w.Write(this.Resp(nil).Bytes()); err != nil {
 				return err
 			}
 		}
@@ -272,7 +269,7 @@ func Decode(bs []byte) (*Frame, error) {
 
 }
 
-func Deal(c *client.Client, bs client.Message) (*Frame, error) {
+func WithDeal(w io.Writer, tag *maps.Safe, bs client.Message) (*Frame, error) {
 
 	p, err := Decode(bs)
 	if err != nil {
@@ -281,35 +278,35 @@ func Deal(c *client.Client, bs client.Message) (*Frame, error) {
 	switch p.GetFunction() {
 	case FunctionPing:
 		if p.IsCall() {
-			if _, err := c.Write(p.Resp(nil).Bytes()); err != nil {
+			if _, err := w.Write(p.Resp(nil).Bytes()); err != nil {
 				return nil, err
 			}
 		}
 	case FunctionTime:
 		if p.IsCall() && p.IsRead() {
 			now := conv.Bytes(time.Now().UnixMilli())
-			if _, err := c.Write(p.Resp(now).Bytes()); err != nil {
+			if _, err := w.Write(p.Resp(now).Bytes()); err != nil {
 				return nil, err
 			}
 		}
 
 	case FunctionIMEI:
-		if err := p.ReadWriteTag(c, "imei"); err != nil {
+		if err := p.dealWithTag(w, tag, "imei"); err != nil {
 			return nil, err
 		}
 
 	case FunctionICCID:
-		if err := p.ReadWriteTag(c, "iccid"); err != nil {
+		if err := p.dealWithTag(w, tag, "iccid"); err != nil {
 			return nil, err
 		}
 
 	case FunctionIMSI:
-		if err := p.ReadWriteTag(c, "imsi"); err != nil {
+		if err := p.dealWithTag(w, tag, "imsi"); err != nil {
 			return nil, err
 		}
 
 	case FunctionSlave:
-		if err := p.ReadWriteTag(c, "salve"); err != nil {
+		if err := p.dealWithTag(w, tag, "salve"); err != nil {
 			return nil, err
 		}
 
@@ -317,11 +314,11 @@ func Deal(c *client.Client, bs client.Message) (*Frame, error) {
 	return p, nil
 }
 
-func WithWrite(req []byte) ([]byte, error) {
+func WriteMessage(req []byte) ([]byte, error) {
 	return New(0, req).Bytes(), nil
 }
 
-func WithRead(r *bufio.Reader) (result []byte, err error) {
+func ReadFrom(r io.Reader) (result []byte, err error) {
 	var bs []byte
 	for {
 
@@ -357,10 +354,24 @@ func WithRead(r *bufio.Reader) (result []byte, err error) {
 					p, err := Decode(result)
 					if err != nil {
 						return nil, err
+						result = result[:0]
+						continue
 					}
 					return p.Data, nil
 				}
 			}
 		}
 	}
+}
+
+var Entity = &_frame{}
+
+type _frame struct{}
+
+func (this *_frame) WriteMessage(p []byte) ([]byte, error) {
+	return WriteMessage(p)
+}
+
+func (this *_frame) ReadFrom(r io.Reader) ([]byte, error) {
+	return ReadFrom(r)
 }

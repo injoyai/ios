@@ -12,7 +12,7 @@ import (
 func main() {
 
 	go func() {
-		listen.TCPRun(10086, func(s *server.Server) {
+		listen.RunTCP(10086, func(s *server.Server) {
 			s.Logger.Debug(false)
 			s.SetClientOption(func(c *client.Client) {
 				c.Event.OnConnected = func(c *client.Client) error {

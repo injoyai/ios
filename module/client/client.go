@@ -113,6 +113,7 @@ func (this *Client) SetBuffer(size int) *Client {
 func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Option) {
 	this.key = k
 	this.Reader = r
+	this.SetBuffer(4096) //设置缓存区4KB
 	this.MoreWriter = ios.NewMoreWriter(r)
 	this.Info.DialTime = time.Now()
 	this.options = op
@@ -334,10 +335,10 @@ func (this *Client) run(ctx context.Context) (err error) {
 			switch r := this.Reader.(type) {
 			case io.Reader:
 				var bs []byte
-				if this.Event.OnReadBuffer == nil {
-					this.Event.OnReadBuffer = ios.NewRead(make([]byte, 1024*4))
+				if this.Event.OnReadFrom == nil {
+					this.Event.OnReadFrom = ios.NewRead(make([]byte, 1024*4))
 				}
-				bs, err = this.Event.OnReadBuffer(r)
+				bs, err = this.Event.OnReadFrom(r)
 				ack = ios.Ack(bs)
 
 			case ios.MReader:

@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	logs.Err(listen.MQTTRun(11883, func(s *server.Server) {
+	logs.Err(listen.RunMQTT(11883, func(s *server.Server) {
 		s.SetClientOption(func(c *client.Client) {
 			c.GoTimerWriter(time.Second*5, func(w ios.MoreWriter) error {
 				return w.WriteAny(time.Now().String())
