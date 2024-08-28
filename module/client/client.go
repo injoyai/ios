@@ -104,6 +104,8 @@ type Client struct {
 // SetBuffer 仅对io.Reader有效
 func (this *Client) SetBuffer(size int) *Client {
 	switch v := this.Reader.(type) {
+	case ios.MReader:
+	case ios.AReader:
 	case io.Reader:
 		this.Reader = bufio.NewReaderSize(v, size)
 	}
