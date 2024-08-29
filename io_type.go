@@ -29,6 +29,7 @@ type (
 		Closed() bool
 	}
 
+	// AReader 更加兼容各种协议,例如MQTT,RabbitMQ等
 	AReader interface {
 		ReadAck() (Acker, error)
 	}
@@ -49,6 +50,7 @@ type (
 		io.Closer
 	}
 
+	// MReader 使用更方便,就是分包后的IO
 	MReader interface {
 		ReadMessage() ([]byte, error)
 	}
@@ -159,4 +161,71 @@ type WriteTo func(w io.Writer) error
 
 //type ReadFrom func(r Reader) ([]byte, error)
 
-//type Read func(r io.Reader) ([]byte, error)
+type Read func(r io.Reader) ([]byte, error)
+
+//=================================Struct=================================
+
+type ToMReader struct {
+	io.Reader
+	Handler Read
+}
+
+func (this *ToMReader) ReadMessage() ([]byte, error) {
+	return this.Handler(this.Reader)
+}
+
+type ToAReader struct {
+	io.Reader
+	Handler Read
+}
+
+func (this *ToAReader) ReadAck() (Acker, error) {
+	bs, err := this.Handler(this.Reader)
+	if err != nil {
+		return nil, err
+	}
+	return Ack(bs), nil
+}
+
+type ToReader struct {
+	MReader
+	readCache []byte
+}
+
+func (this *ToReader) Read(p []byte) (n int, err error) {
+
+	if len(this.readCache) == 0 {
+		this.readCache, err = this.ReadMessage()
+		if err != nil {
+			return
+		}
+	}
+
+	//从缓存(上次剩余的字节)复制数据到p
+	n = copy(p, this.readCache)
+	if n < len(this.readCache) {
+		this.readCache = this.readCache[n:]
+		return
+	}
+
+	this.readCache = nil
+	return
+}
+
+type ToIO struct {
+	io.Writer
+	io.Closer
+	ToReader
+}
+
+type ToMIO struct {
+	io.Writer
+	io.Closer
+	ToMReader
+}
+
+type ToAIO struct {
+	io.Writer
+	io.Closer
+	ToAReader
+}

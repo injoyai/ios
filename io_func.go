@@ -1,7 +1,6 @@
 package ios
 
 import (
-	"github.com/injoyai/base/chans"
 	"io"
 )
 
@@ -20,19 +19,24 @@ func SplitBytesByLength(p []byte, max int) [][]byte {
 	return list
 }
 
-// Pipe 一个双向通道
-func Pipe() (io.ReadWriteCloser, io.ReadWriteCloser) {
-	r1 := chans.NewIO(0)
-	r2 := chans.NewIO(0)
-	type T struct {
-		io.Reader
-		io.Writer
-		io.Closer
-	}
-	i1 := T{Reader: r1, Writer: r2, Closer: MultiCloser(r1, r2)}
-	i2 := T{Reader: r2, Writer: r1, Closer: MultiCloser(r2, r1)}
-	return i1, i2
+func A2MReader(r AReader) MReader {
+	return MReadFunc(func() ([]byte, error) {
+		a, err := r.ReadAck()
+		if err != nil {
+			return nil, err
+		}
+		return a.Payload(), nil
+	})
+}
 
+func M2AReader(r MReader) AReader {
+	return AReadFunc(func() (Acker, error) {
+		m, err := r.ReadMessage()
+		if err != nil {
+			return nil, err
+		}
+		return Ack(m), nil
+	})
 }
 
 func NewIO(r io.Reader, w io.Writer, c io.Closer) IO {
