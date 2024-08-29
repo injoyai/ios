@@ -34,3 +34,39 @@ func Pipe() (io.ReadWriteCloser, io.ReadWriteCloser) {
 	return i1, i2
 
 }
+
+func NewIO(r io.Reader, w io.Writer, c io.Closer) IO {
+	return struct {
+		io.Reader
+		io.Writer
+		io.Closer
+	}{
+		Reader: r,
+		Writer: w,
+		Closer: c,
+	}
+}
+
+func NewMIO(r MReader, w io.Writer, c io.Closer) MIO {
+	return struct {
+		MReader
+		io.Writer
+		io.Closer
+	}{
+		MReader: r,
+		Writer:  w,
+		Closer:  c,
+	}
+}
+
+func NewAIO(r AReader, w io.Writer, c io.Closer) AIO {
+	return struct {
+		AReader
+		io.Writer
+		io.Closer
+	}{
+		AReader: r,
+		Writer:  w,
+		Closer:  c,
+	}
+}

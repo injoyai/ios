@@ -6,6 +6,10 @@ import (
 )
 
 type (
+	IO  = io.ReadWriteCloser
+	MIO = MReadWriteCloser
+	AIO = AReadWriteCloser
+
 	Reader interface {
 		//Reader为这三种类型 [io.Reader|AReader|MReader] 如何用泛型实现?
 	}
@@ -66,7 +70,7 @@ type (
 	}
 
 	Runner interface {
-		io.Closer
+		Closer
 		Run() error
 		Running() bool
 	}
