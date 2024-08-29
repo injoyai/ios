@@ -19,58 +19,11 @@ func SplitBytesByLength(p []byte, max int) [][]byte {
 	return list
 }
 
-func A2MReader(r AReader) MReader {
-	return MReadFunc(func() ([]byte, error) {
-		a, err := r.ReadAck()
-		if err != nil {
-			return nil, err
-		}
-		return a.Payload(), nil
-	})
-}
-
-func M2AReader(r MReader) AReader {
-	return AReadFunc(func() (Acker, error) {
-		m, err := r.ReadMessage()
-		if err != nil {
-			return nil, err
-		}
-		return Ack(m), nil
-	})
-}
-
-func NewIO(r io.Reader, w io.Writer, c io.Closer) IO {
-	return struct {
-		io.Reader
-		io.Writer
-		io.Closer
-	}{
-		Reader: r,
-		Writer: w,
-		Closer: c,
-	}
-}
-
-func NewMIO(r MReader, w io.Writer, c io.Closer) MIO {
-	return struct {
-		MReader
-		io.Writer
-		io.Closer
-	}{
-		MReader: r,
-		Writer:  w,
-		Closer:  c,
-	}
-}
-
-func NewAIO(r AReader, w io.Writer, c io.Closer) AIO {
-	return struct {
-		AReader
-		io.Writer
-		io.Closer
-	}{
-		AReader: r,
-		Writer:  w,
-		Closer:  c,
+func CheckReader(r Reader) error {
+	switch r.(type) {
+	case AReader, MReader, io.Reader:
+		return nil
+	default:
+		return ErrUnknownReader
 	}
 }

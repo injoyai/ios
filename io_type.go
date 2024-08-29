@@ -6,9 +6,7 @@ import (
 )
 
 type (
-	IO  = io.ReadWriteCloser
-	MIO = MReadWriteCloser
-	AIO = AReadWriteCloser
+	IO = AllReadWriteCloser
 
 	Reader interface {
 		//Reader为这三种类型 [io.Reader|AReader|MReader] 如何用泛型实现?
@@ -69,6 +67,18 @@ type (
 		MReader
 		io.Writer
 		io.Closer
+	}
+
+	AllReader interface {
+		io.Reader
+		MReader
+		AReader
+	}
+
+	AllReadWriteCloser interface {
+		io.ReadWriteCloser
+		MReader
+		AReader
 	}
 
 	Runner interface {
@@ -164,68 +174,3 @@ type WriteTo func(w io.Writer) error
 type Read func(r io.Reader) ([]byte, error)
 
 //=================================Struct=================================
-
-type ToMReader struct {
-	io.Reader
-	Handler Read
-}
-
-func (this *ToMReader) ReadMessage() ([]byte, error) {
-	return this.Handler(this.Reader)
-}
-
-type ToAReader struct {
-	io.Reader
-	Handler Read
-}
-
-func (this *ToAReader) ReadAck() (Acker, error) {
-	bs, err := this.Handler(this.Reader)
-	if err != nil {
-		return nil, err
-	}
-	return Ack(bs), nil
-}
-
-type ToReader struct {
-	MReader
-	readCache []byte
-}
-
-func (this *ToReader) Read(p []byte) (n int, err error) {
-
-	if len(this.readCache) == 0 {
-		this.readCache, err = this.ReadMessage()
-		if err != nil {
-			return
-		}
-	}
-
-	//从缓存(上次剩余的字节)复制数据到p
-	n = copy(p, this.readCache)
-	if n < len(this.readCache) {
-		this.readCache = this.readCache[n:]
-		return
-	}
-
-	this.readCache = nil
-	return
-}
-
-type ToIO struct {
-	io.Writer
-	io.Closer
-	ToReader
-}
-
-type ToMIO struct {
-	io.Writer
-	io.Closer
-	ToMReader
-}
-
-type ToAIO struct {
-	io.Writer
-	io.Closer
-	ToAReader
-}

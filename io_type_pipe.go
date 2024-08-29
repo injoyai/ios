@@ -10,14 +10,6 @@ func Pipe(cap uint, timeout ...time.Duration) (IO, IO) {
 	return NewPiper(cap, timeout...).IO()
 }
 
-func MPipe(cap uint, timeout ...time.Duration) (MIO, MIO) {
-	return NewPiper(cap, timeout...).MIO()
-}
-
-func APipe(cap uint, timeout ...time.Duration) (AIO, AIO) {
-	return NewPiper(cap, timeout...).AIO()
-}
-
 func NewPiper(cap uint, timeout ...time.Duration) *Piper {
 	return &Piper{
 		Pipe1: chans.NewIO(cap, timeout...),
@@ -26,8 +18,8 @@ func NewPiper(cap uint, timeout ...time.Duration) *Piper {
 }
 
 type Piper struct {
-	Pipe1 *chans.IO
-	Pipe2 *chans.IO
+	Pipe1 ReadWriteCloser
+	Pipe2 ReadWriteCloser
 }
 
 func (this *Piper) Close() error {
@@ -37,16 +29,19 @@ func (this *Piper) Close() error {
 }
 
 func (this *Piper) IO() (IO, IO) {
-	return NewIO(this.Pipe1, this.Pipe2, this),
-		NewIO(this.Pipe2, this.Pipe1, this)
-}
-
-func (this *Piper) MIO() (MIO, MIO) {
-	return NewMIO(this.Pipe1, this.Pipe2, this),
-		NewMIO(this.Pipe2, this.Pipe1, this)
-}
-
-func (this *Piper) AIO() (AIO, AIO) {
-	return NewAIO(M2AReader(this.Pipe1), this.Pipe2, this),
-		NewAIO(M2AReader(this.Pipe2), this.Pipe1, this)
+	i1 := &IOer{
+		AllRead: &AllRead{
+			Reader: this.Pipe1,
+		},
+		Writer: this.Pipe2,
+		Closer: this,
+	}
+	i2 := &IOer{
+		AllRead: &AllRead{
+			Reader: this.Pipe2,
+		},
+		Writer: this.Pipe1,
+		Closer: this,
+	}
+	return i1, i2
 }

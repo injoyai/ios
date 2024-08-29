@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"github.com/injoyai/base/bytes"
 	"github.com/injoyai/base/maps"
 	"github.com/injoyai/base/safe"
@@ -83,6 +82,7 @@ Client
 */
 type Client struct {
 	ios.Reader     //IO实例 目前支持ios.AReader,ios.MReader,io.Reader
+	ios.AllReader  //实现多种读取方式
 	ios.MoreWriter //多个方式写入
 
 	Info                         //基本信息
@@ -116,6 +116,7 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 	this.key = k
 	this.Reader = r
 	this.SetBuffer(4096) //设置缓存区4KB
+	this.AllReader = ios.NewAllReader(r, this.Event.OnReadFrom)
 	this.MoreWriter = ios.NewMoreWriter(r)
 	this.Info.DialTime = time.Now()
 	this.options = op
@@ -297,6 +298,13 @@ func (this *Client) Done() <-chan struct{} {
 // run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?
 func (this *Client) run(ctx context.Context) (err error) {
 
+	//校验事件函数
+	if this.Event == nil {
+		this.Event = &Event{}
+	}
+
+	this.AllReader = ios.NewAllReader(this.Reader, this.Event.OnReadFrom)
+
 	//超时机制
 	this.timeout.Start()
 
@@ -325,39 +333,12 @@ func (this *Client) run(ctx context.Context) (err error) {
 
 		default:
 
-			//校验事件函数
-			if this.Event == nil {
-				this.Event = &Event{}
-			}
-
 			//读取数据,目前支持3种类型,Reader, AReader, MReader
 			//如果是AReader,MReader,说明是分包分好的数据,则直接读取即可
 			//如果是Reader,则数据还处于粘包状态,需要调用时间OnReadBuffer,来进行读取
-			var ack ios.Acker
-			switch r := this.Reader.(type) {
-			case io.Reader:
-				var bs []byte
-				if this.Event.OnReadFrom == nil {
-					this.Event.OnReadFrom = ios.NewRead(make([]byte, 1024*4))
-				}
-				bs, err = this.Event.OnReadFrom(r)
-				ack = ios.Ack(bs)
-
-			case ios.MReader:
-				var bs []byte
-				bs, err = r.ReadMessage()
-				ack = ios.Ack(bs)
-
-			case ios.AReader:
-				ack, err = r.ReadAck()
-
-			default:
-				err = fmt.Errorf("未知类型: %T, 未实现[Reader|MReader|AReader]", r)
-
-			}
-
+			ack, err := this.ReadAck()
 			if err != nil {
-				if this.Event != nil && this.Event.OnDealErr != nil {
+				if this.Event.OnDealErr != nil {
 					err = this.Event.OnDealErr(this, err)
 				}
 				this.CloseWithErr(err)
