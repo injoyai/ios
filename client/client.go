@@ -65,7 +65,7 @@ func NewWithContext(ctx context.Context) *Client {
 			OnDealErr: func(c *Client, err error) error { return common.DealErr(err) },
 		},
 		Closer:     nil,
-		Runner:     nil,
+		Runner:     safe.NewRunnerWithContext(ctx, nil),
 		Tag:        maps.NewSafe(),
 		timeout:    safe.NewRunnerWithContext(ctx, nil),
 		Ctx:        ctx,
@@ -73,6 +73,7 @@ func NewWithContext(ctx context.Context) *Client {
 		dial:       nil,
 		options:    nil,
 	}
+	c.Runner.SetFunc(c.run)
 	return c
 }
 
@@ -121,14 +122,14 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 	this.Info.DialTime = time.Now()
 	this.options = op
 	//Runner需要重新申明,老的已经在Closer中停止,才能触发退出运行及重试
-	this.Runner = safe.NewRunnerWithContext(this.Ctx, this.run)
+	//现在作为全局的生命周期,Closer控制单次的生命周期
+	//this.Runner = safe.NewRunnerWithContext(this.Ctx, this.run)
 	this.Closer = safe.NewCloser().SetCloseFunc(func(err error) error {
 		//关闭真实实例
 		if er := r.Close(); er != nil {
 			return er
 		}
-		//结束Run,不等待,重连是直接在原先的Run里面
-		this.Runner.Stop()
+		//关闭超时机制
 		this.timeout.Stop()
 
 		//关闭/断开连接事件
@@ -218,7 +219,9 @@ func (this *Client) SetReadTimeout(timeout time.Duration) *Client {
 	})
 
 	//不用判断客户端是否已经运行,可能还没开始执行
+	//if this.timeout.Running() {
 	this.timeout.Restart()
+	//}
 
 	return this
 }
@@ -290,9 +293,9 @@ func (this *Client) Redial() {
 	this.redialSign <- struct{}{}
 }
 
-// Done 这个是单次关闭信号
+// Done 这个是客户端生命周期结束的关闭信号
 func (this *Client) Done() <-chan struct{} {
-	return this.Closer.Done()
+	return this.Runner.Done()
 }
 
 // run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?
@@ -310,16 +313,20 @@ func (this *Client) run(ctx context.Context) (err error) {
 
 	for {
 		select {
-		//这个ctx不是Client的ctx,而是Runner的ctx属于Client的ctx的子级
-		case <-ctx.Done():
 
+		case <-ctx.Done():
+			//这个ctx不是Client的ctx,而是Runner的ctx属于Client的ctx的子级
+			return this.Closer.Err()
+
+		case <-this.Closer.Done():
+			//一个连接的生命周期结束
 			if this.redial {
 				//设置了重连,并且已经运行,其他都关闭
 				//这里连接的错误只会出现在上下文关闭的情况
 				if err := this.MustDial(this.dial, this.options...); err != nil {
 					return err
 				}
-				return this.Run()
+				return this.run(ctx)
 			}
 			return this.Closer.Err()
 

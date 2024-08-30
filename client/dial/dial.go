@@ -1,7 +1,7 @@
 package dial
 
 import (
-	"github.com/injoyai/ios/module/client"
+	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/module/memory"
 	"github.com/injoyai/ios/module/mqtt"
 	"github.com/injoyai/ios/module/rabbitmq"
