@@ -1,6 +1,8 @@
 package server
 
-import "github.com/injoyai/ios/module/client"
+import (
+	"github.com/injoyai/ios/client"
+)
 
 type Event struct {
 	OnOpen      func(s *Server)                         //服务开启事件

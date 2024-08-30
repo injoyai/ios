@@ -6,7 +6,7 @@ import (
 	"github.com/injoyai/base/maps/timeout"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
-	"github.com/injoyai/ios/module/client"
+	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/module/common"
 	"sync"
 	"time"
@@ -161,6 +161,7 @@ func (this *Server) run(ctx context.Context) error {
 			cli.SetRedial(false)
 			//取消读取超时机制,取消客户端,实现服务端
 			cli.SetReadTimeout(0)
+
 			//设置修改key事件
 			onChangeKey := cli.Event.OnKeyChange
 			cli.Event.OnKeyChange = func(c *client.Client, oldKey string) {
