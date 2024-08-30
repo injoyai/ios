@@ -1,6 +1,7 @@
 package dial
 
 import (
+	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/module/memory"
 	"github.com/injoyai/ios/module/mqtt"
@@ -20,6 +21,14 @@ var (
 	WithTCP       = tcp.NewDial
 	WithWebsocket = websocket.NewDial
 )
+
+func Dial(dial ios.DialFunc, op ...client.Option) (*client.Client, error) {
+	return client.Dial(dial, op...)
+}
+
+func Redial(dial ios.DialFunc, op ...client.Option) *client.Client {
+	return client.Redial(dial, op...)
+}
 
 func TCP(addr string, op ...client.Option) (*client.Client, error) {
 	return client.Dial(tcp.NewDial(addr), op...)
