@@ -6,7 +6,7 @@ import (
 	"github.com/injoyai/base/bytes"
 	"github.com/injoyai/base/maps"
 	"github.com/injoyai/conv"
-	"github.com/injoyai/ios/module/client"
+	"github.com/injoyai/ios/client"
 	"github.com/injoyai/logs"
 	"hash/crc32"
 	"io"
