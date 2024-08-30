@@ -2,11 +2,11 @@ package main
 
 import (
 	"github.com/injoyai/ios"
-	"github.com/injoyai/ios/module/client"
-	"github.com/injoyai/ios/module/client/dial"
+	"github.com/injoyai/ios/client"
+	"github.com/injoyai/ios/client/dial"
 	"github.com/injoyai/ios/module/frame"
-	"github.com/injoyai/ios/module/server"
-	"github.com/injoyai/ios/module/server/listen"
+	"github.com/injoyai/ios/server"
+	"github.com/injoyai/ios/server/listen"
 	"time"
 )
 

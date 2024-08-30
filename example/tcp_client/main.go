@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/injoyai/ios"
-	"github.com/injoyai/ios/module/client"
-	"github.com/injoyai/ios/module/client/dial"
+	"github.com/injoyai/ios/client"
+	"github.com/injoyai/ios/client/dial"
 	"github.com/injoyai/ios/module/tcp"
 	"time"
 )

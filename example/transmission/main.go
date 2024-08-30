@@ -2,11 +2,11 @@ package main
 
 import (
 	"github.com/injoyai/ios"
-	"github.com/injoyai/ios/module/client"
-	"github.com/injoyai/ios/module/client/dial"
+	"github.com/injoyai/ios/client"
+	"github.com/injoyai/ios/client/dial"
 	"github.com/injoyai/ios/module/common"
-	"github.com/injoyai/ios/module/server"
-	"github.com/injoyai/ios/module/server/listen"
+	"github.com/injoyai/ios/server"
+	"github.com/injoyai/ios/server/listen"
 	"github.com/injoyai/logs"
 	"io"
 	"os"
@@ -76,6 +76,9 @@ func Test(n int) {
 			s.SetClientOption(func(c *client.Client) {
 				c.SetBuffer(1024 * 10)
 				c.Event.OnReadFrom = readAll
+				c.Event.OnConnected = func(c *client.Client) error {
+					return nil
+				}
 				c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
 					totalDeal += len(msg.Payload())
 					if totalDeal >= length {
@@ -92,7 +95,8 @@ func Test(n int) {
 			c.Logger.SetLevel(common.LevelInfo)
 			data := make([]byte, length)
 			start = time.Now()
-			c.Write(data)
+			_, err := c.Write(data)
+			logs.PrintErr(err)
 			logs.Debugf("[发送]传输耗时: %0.1fMB/s\n", float64(length/(1<<20))/time.Now().Sub(start).Seconds())
 			c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
 				logs.Debug(msg)
