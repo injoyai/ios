@@ -70,6 +70,7 @@ func NewWithContext(ctx context.Context) *Client {
 		timeout:    safe.NewRunnerWithContext(ctx, nil),
 		Ctx:        ctx,
 		redialSign: make(chan struct{}),
+		dialedSign: make(chan struct{}),
 		dial:       nil,
 		options:    nil,
 	}
@@ -89,7 +90,7 @@ type Client struct {
 	Info                         //基本信息
 	*Event                       //事件
 	*safe.Closer                 //关闭
-	*safe.Runner                 //运行
+	*safe.Runner                 //运行,全局的生命周期,包括重试
 	Logger       common.Logger   //日志
 	Tag          *maps.Safe      //标签,用于记录连接的一些信息
 	Ctx          context.Context //上下文
@@ -98,6 +99,7 @@ type Client struct {
 	key        string        //自定义标识
 	redial     bool          //是否自动重连
 	redialSign chan struct{} //重连信号,未设置自动重连也可以手动重连
+	dialedSign chan struct{} //已连接信号,连接的时候会释放信号,关闭的时候会重新阻塞,注意不是一个
 	dial       ios.DialFunc  //连接函数
 	options    []Option      //选项
 }
@@ -121,10 +123,10 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 	this.MoreWriter = ios.NewMoreWriter(r)
 	this.Info.DialTime = time.Now()
 	this.options = op
-	//Runner需要重新申明,老的已经在Closer中停止,才能触发退出运行及重试
-	//现在作为全局的生命周期,Closer控制单次的生命周期
+	//Runner现在作为全局的生命周期,Closer控制单次的生命周期
 	//this.Runner = safe.NewRunnerWithContext(this.Ctx, this.run)
 	this.Closer = safe.NewCloser().SetCloseFunc(func(err error) error {
+
 		//关闭真实实例
 		if er := r.Close(); er != nil {
 			return er
@@ -155,6 +157,7 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 
 	//执行选项
 	this.SetOption(op...)
+
 }
 
 func (this *Client) MustDial(dial ios.DialFunc, op ...Option) error {
@@ -170,6 +173,16 @@ func (this *Client) _dial(must bool, dial ios.DialFunc, op ...Option) error {
 	r, k, err := this.doDial(must)
 	if err != nil {
 		return err
+	}
+	//增加连接成功的信号,方便一些逻辑判断
+	//当连接成功的时候会发送信号通道(防止代码错误最多10个),则监听能收到连接成功的信号
+	//当连接关闭的时候,需要重新声明信号,方便下次阻塞
+	for i := 0; i < 10; i++ {
+		select {
+		case this.dialedSign <- struct{}{}:
+		default:
+			break
+		}
 	}
 	this.SetReadWriteCloser(k, r, op...)
 	//连接事件
@@ -291,6 +304,12 @@ func (this *Client) SetRedial(b ...bool) *Client {
 // Redial 断开重连,是否有必要? 因为可以用其他方式实现
 func (this *Client) Redial() {
 	this.redialSign <- struct{}{}
+}
+
+// Dialed 连接成功的信号,每次连接成功都会释放信号(最多10个)
+// 需要判断下closer是否关闭,才能保证逻辑更有效
+func (this *Client) Dialed() <-chan struct{} {
+	return this.dialedSign
 }
 
 // Done 这个是客户端生命周期结束的关闭信号
