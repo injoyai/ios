@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/server"
 	"github.com/injoyai/ios/server/listen"
@@ -11,9 +10,10 @@ import (
 
 func main() {
 	logs.Err(listen.RunMQTT(11883, func(s *server.Server) {
-		s.SetClientOption(func(c *client.Client) {
-			c.GoTimerWriter(time.Second*5, func(w ios.MoreWriter) error {
-				return w.WriteAny(time.Now().String())
+		go s.Timer(time.Second*5, func(s *server.Server) {
+			s.RangeClient(func(c *client.Client) bool {
+				c.WriteAny(time.Now().String())
+				return true
 			})
 		})
 	}))

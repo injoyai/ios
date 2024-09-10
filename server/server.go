@@ -86,6 +86,22 @@ func (this *Server) SetClientOption(op ...client.Option) *Server {
 	return this
 }
 
+// Timer 定时器
+func (this *Server) Timer(t time.Duration, f Option) {
+	tick := time.NewTicker(t)
+	defer tick.Stop()
+	for {
+		select {
+		case <-this.Closer.Done():
+			return
+		case _, ok := <-tick.C:
+			if ok {
+				f(this)
+			}
+		}
+	}
+}
+
 // GetClient 获取客户端
 func (this *Server) GetClient(key string) *client.Client {
 	this.clientMu.RLock()
