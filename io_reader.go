@@ -4,13 +4,10 @@ import (
 	"io"
 )
 
-type ReadOption func(p []byte, err error)
-
-func NewAllReader(r Reader, f Read, op ...ReadOption) AllReader {
+func NewAllReader(r Reader, f Read) AllReader {
 	return &AllRead{
 		Reader:  r,
 		Handler: f,
-		Options: op,
 	}
 }
 
@@ -21,18 +18,9 @@ type AllRead struct {
 	//当Reader是io.Reader时有效
 	Handler Read
 	cache   []byte
-	Options []ReadOption
 }
 
 func (this *AllRead) Read(p []byte) (n int, err error) {
-	defer func() {
-		for _, f := range this.Options {
-			if f != nil {
-				f(p[:n], err)
-			}
-		}
-	}()
-
 	switch r := this.Reader.(type) {
 	case MReader:
 		if len(this.cache) == 0 {
@@ -72,14 +60,6 @@ func (this *AllRead) Read(p []byte) (n int, err error) {
 }
 
 func (this *AllRead) ReadMessage() (bs []byte, err error) {
-	defer func() {
-		for _, f := range this.Options {
-			if f != nil {
-				f(bs, err)
-			}
-		}
-	}()
-
 	switch r := this.Reader.(type) {
 	case MReader:
 		return r.ReadMessage()
@@ -96,14 +76,6 @@ func (this *AllRead) ReadMessage() (bs []byte, err error) {
 }
 
 func (this *AllRead) ReadAck() (a Acker, err error) {
-	defer func() {
-		for _, f := range this.Options {
-			if f != nil {
-				f(a.Payload(), err)
-			}
-		}
-	}()
-
 	switch r := this.Reader.(type) {
 	case MReader:
 		bs, err := r.ReadMessage()
