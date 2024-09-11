@@ -64,7 +64,7 @@ func NewWithContext(ctx context.Context) *Client {
 		Event: &Event{
 			OnDealErr: func(c *Client, err error) error { return common.DealErr(err) },
 		},
-		Closer:     nil,
+		Closer:     safe.NewCloser(),
 		Runner:     safe.NewRunnerWithContext(ctx, nil),
 		Tag:        maps.NewSafe(),
 		timeout:    safe.NewRunnerWithContext(ctx, nil),
@@ -74,6 +74,7 @@ func NewWithContext(ctx context.Context) *Client {
 		dial:       nil,
 		options:    nil,
 	}
+	c.Closer.CloseWithErr(errors.New("等待连接"))
 	c.Runner.SetFunc(c.run)
 	return c
 }
@@ -168,10 +169,12 @@ func (this *Client) Dial(dial ios.DialFunc, op ...Option) error {
 	return this._dial(false, dial, op...)
 }
 
-func (this *Client) _dial(must bool, dial ios.DialFunc, op ...Option) error {
+func (this *Client) _dial(must bool, dial ios.DialFunc, op ...Option) (err error) {
 	this.dial = dial
 	r, k, err := this.doDial(must)
 	if err != nil {
+		this.Closer = safe.NewCloser()
+		this.Closer.CloseWithErr(err)
 		return err
 	}
 	//增加连接成功的信号,方便一些逻辑判断
@@ -189,6 +192,7 @@ func (this *Client) _dial(must bool, dial ios.DialFunc, op ...Option) error {
 	this.Logger.Infof("[%s] 连接服务成功...\n", this.GetKey())
 	if this.Event.OnConnected != nil {
 		if err := this.Event.OnConnected(this); err != nil {
+			this.CloseWithErr(err)
 			return err
 		}
 	}
