@@ -40,8 +40,8 @@ type Info struct {
 	WriteBytes int       //本次连接,写入数据字节
 }
 
-// WithReconnectInterval 按一定时间间隔进行重连
-func WithReconnectInterval(t time.Duration) func(c *Client, dial ios.DialFunc) (ios.ReadWriteCloser, string, error) {
+// ReconnectWithInterval 按一定时间间隔进行重连
+func ReconnectWithInterval(t time.Duration) func(c *Client, dial ios.DialFunc) (ios.ReadWriteCloser, string, error) {
 	return func(c *Client, dial ios.DialFunc) (ios.ReadWriteCloser, string, error) {
 		r, k, err := dial(c.Ctx)
 		if err == nil {
@@ -61,8 +61,8 @@ func WithReconnectInterval(t time.Duration) func(c *Client, dial ios.DialFunc) (
 	}
 }
 
-// WithReconnectRetreat 退避重试
-func WithReconnectRetreat(start, max time.Duration, multi uint8) func(c *Client, dial ios.DialFunc) (ios.ReadWriteCloser, string, error) {
+// ReconnectWithRetreat 退避重试
+func ReconnectWithRetreat(start, max time.Duration, multi uint8) func(c *Client, dial ios.DialFunc) (ios.ReadWriteCloser, string, error) {
 	if start < 0 {
 		start = time.Second * 2
 	}
@@ -93,6 +93,22 @@ func WithReconnectRetreat(start, max time.Duration, multi uint8) func(c *Client,
 				}
 				c.Logger.Errorf("[%s] %v,等待%d秒重试\n", c.GetKey(), common.DealErr(err), wait/time.Second)
 			}
+		}
+	}
+}
+
+// DealMessageWithChan 把数据写入到chan中
+func DealMessageWithChan(ch chan ios.Acker) func(c *Client, msg ios.Acker) {
+	return func(c *Client, msg ios.Acker) {
+		ch <- msg
+	}
+}
+
+// DealMessageWithWriter 把数据写入到io.Writer中
+func DealMessageWithWriter(w io.Writer) func(c *Client, msg ios.Acker) {
+	return func(c *Client, msg ios.Acker) {
+		if _, err := w.Write(msg.Payload()); err == nil {
+			msg.Ack()
 		}
 	}
 }

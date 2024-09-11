@@ -207,7 +207,7 @@ func (this *Client) doDial(must bool) (ios.ReadWriteCloser, string, error) {
 		return this.Event.OnReconnect(this, this.dial)
 	}
 	//防止用户设置错了重试,再外层在加上一层退避重试,是否需要? 可能想重试10次就不重试就无法实现了
-	f := WithReconnectRetreat(time.Second*2, time.Second*32, 2)
+	f := ReconnectWithRetreat(time.Second*2, time.Second*32, 2)
 	return f(this, this.dial)
 }
 

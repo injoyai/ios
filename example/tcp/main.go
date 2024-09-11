@@ -24,7 +24,7 @@ func main() {
 	{
 
 		c := client2.New()
-		c.Event.OnReconnect = client2.WithReconnectInterval(time.Second * 3)
+		c.Event.OnReconnect = client2.ReconnectWithInterval(time.Second * 3)
 		c.MustDial(tcp.NewDial(":10086"), func(c *client2.Client) {
 			c.SetKey(":10087")
 			c.SetRedial()
