@@ -1,6 +1,5 @@
 package client
 
-import "C"
 import (
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/module/common"
