@@ -38,13 +38,13 @@ import (
 
 包类型:
 .=======================================================================================================.
-|bit15				|bit14		|bit13~11				|bit10	|bit9	|bit8							|
+|bit15				|bit14		|bit13~11				|bit10	|bit9	|bit8		|
 |-------------------------------------------------------------------------------------------------------|
-|数据方向0请求,1响应	|预留		|压缩方式,0无,1gzip		|预留											|
+|数据方向0请求,1响应	|预留		|压缩方式,0无,1gzip		|预留						|
 ^=======================================================================================================^
-|bit7   								|功能码															|
+|bit7   								|功能码																				|
 |-------------------------------------------------------------------------------------------------------|
-|数据的读写0读/订阅/接收,1写/发布/发送		|																|
+|数据的读写0读/订阅/接收,1写/发布/发送		|																					|
 ^=======================================================================================================^
 */
 
@@ -61,6 +61,8 @@ const (
 )
 const (
 	// 内置功能码,待定
+	FunctionRead  uint8 = 0x00
+	FunctionWrite uint8 = 0x80
 
 	FunctionCustom      uint8 = 0x0 //自定义
 	FunctionPing        uint8 = 0x1 //测试连接,无数据
@@ -269,7 +271,7 @@ func Decode(bs []byte) (*Frame, error) {
 
 }
 
-func WithDeal(w io.Writer, tag *maps.Safe, bs client.Message) (*Frame, error) {
+func DealWith(w io.Writer, tag *maps.Safe, bs client.Message) (*Frame, error) {
 
 	p, err := Decode(bs)
 	if err != nil {
@@ -313,8 +315,7 @@ func WithDeal(w io.Writer, tag *maps.Safe, bs client.Message) (*Frame, error) {
 	}
 	return p, nil
 }
-
-func WriteMessage(req []byte) ([]byte, error) {
+func WriteWith(req []byte) ([]byte, error) {
 	return New(0, req).Bytes(), nil
 }
 
@@ -349,13 +350,9 @@ func ReadFrom(r io.Reader) (result []byte, err error) {
 					_, err = io.ReadAtLeast(r, bs, length)
 					result = append(result, bs...)
 
-					//return result, nil
-
 					p, err := Decode(result)
 					if err != nil {
 						return nil, err
-						result = result[:0]
-						continue
 					}
 					return p.Data, nil
 				}
@@ -364,14 +361,14 @@ func ReadFrom(r io.Reader) (result []byte, err error) {
 	}
 }
 
-var Entity = &_frame{}
+var Default = _default{}
 
-type _frame struct{}
+type _default struct{}
 
-func (this *_frame) WriteMessage(p []byte) ([]byte, error) {
-	return WriteMessage(p)
+func (_default) ReadFrom(r io.Reader) ([]byte, error) {
+	return ReadFrom(r)
 }
 
-func (this *_frame) ReadFrom(r io.Reader) ([]byte, error) {
-	return ReadFrom(r)
+func (_default) WriteWith(bs []byte) ([]byte, error) {
+	return WriteWith(bs)
 }

@@ -146,8 +146,8 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 	this.MoreWriter.(*ios.MoreWrite).Option = []ios.WriteOption{
 		func(p []byte) (_ []byte, err error) {
 			this.Logger.Writeln("["+this.GetKey()+"] ", p)
-			if this.Event.OnWriteMessage != nil {
-				p, err = this.Event.OnWriteMessage(p)
+			if this.Event.OnWriteWith != nil {
+				p, err = this.Event.OnWriteWith(p)
 			}
 			this.Info.WriteTime = time.Now()
 			this.Info.WriteCount++

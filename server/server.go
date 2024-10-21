@@ -205,10 +205,10 @@ func (this *Server) run(ctx context.Context) error {
 				}
 			}
 			//保持写超时状态
-			onWriteMessage := cli.Event.OnWriteMessage
-			cli.Event.OnWriteMessage = func(bs []byte) ([]byte, error) {
-				if onWriteMessage != nil {
-					return onWriteMessage(bs)
+			onWriteWith := cli.Event.OnWriteWith
+			cli.Event.OnWriteWith = func(bs []byte) ([]byte, error) {
+				if onWriteWith != nil {
+					return onWriteWith(bs)
 				}
 				this.Timeout.Keep(c)
 				return bs, nil

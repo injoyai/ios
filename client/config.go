@@ -8,24 +8,24 @@ import (
 )
 
 type Frame interface {
-	ReadFrom(r io.Reader) ([]byte, error)   //读取数据事件,当类型是io.Reader才会触发
-	WriteMessage(bs []byte) ([]byte, error) //写入消息事件
+	ReadFrom(r io.Reader) ([]byte, error) //读取数据事件,当类型是io.Reader才会触发
+	WriteWith(bs []byte) ([]byte, error)  //写入消息事件
 }
 
 type Event struct {
-	OnConnected    func(c *Client) error                                                   //连接事件
-	OnReconnect    func(c *Client, dial ios.DialFunc) (ios.ReadWriteCloser, string, error) //重新连接事件
-	OnDisconnect   func(c *Client, err error)                                              //断开连接事件
-	OnReadFrom     func(r io.Reader) ([]byte, error)                                       //读取数据事件,当类型是io.Reader才会触发
-	OnDealMessage  func(c *Client, msg ios.Acker)                                          //处理消息事件
-	OnWriteMessage func(bs []byte) ([]byte, error)                                         //写入消息事件
-	OnKeyChange    func(c *Client, oldKey string)                                          //修改标识事件
-	OnDealErr      func(c *Client, err error) error                                        //修改错误信息事件,例翻译成中文
+	OnConnected   func(c *Client) error                                                   //连接事件
+	OnReconnect   func(c *Client, dial ios.DialFunc) (ios.ReadWriteCloser, string, error) //重新连接事件
+	OnDisconnect  func(c *Client, err error)                                              //断开连接事件
+	OnReadFrom    func(r io.Reader) ([]byte, error)                                       //读取数据事件,当类型是io.Reader才会触发
+	OnDealMessage func(c *Client, msg ios.Acker)                                          //处理消息事件
+	OnWriteWith   func(bs []byte) ([]byte, error)                                         //写入消息事件
+	OnKeyChange   func(c *Client, oldKey string)                                          //修改标识事件
+	OnDealErr     func(c *Client, err error) error                                        //修改错误信息事件,例翻译成中文
 }
 
 func (this *Event) WithFrame(f Frame) {
 	this.OnReadFrom = f.ReadFrom
-	this.OnWriteMessage = f.WriteMessage
+	this.OnWriteWith = f.WriteWith
 }
 
 type Info struct {
