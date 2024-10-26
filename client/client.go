@@ -120,7 +120,8 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 	this.key = k
 	this.Reader = r
 	this.SetBuffer(4096) //设置缓存区4KB
-	this.AllReader = ios.NewAllReader(r, this.Event.OnReadFrom)
+	//需要先初始化，方便OnConnect的数据读取
+	this.AllReader = ios.NewAllReader(this.Reader.(io.Reader), ios.NewRead4KB()) // this.Event.OnReadFrom)
 	this.MoreWriter = ios.NewMoreWriter(r)
 	this.Info.DialTime = time.Now()
 	this.options = op
