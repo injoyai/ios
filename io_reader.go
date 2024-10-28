@@ -5,6 +5,10 @@ import (
 )
 
 func NewAllReader(r Reader, f Read) AllReader {
+	if v, ok := r.(*AllRead); ok {
+		v.Handler = f
+		return v
+	}
 	return &AllRead{
 		Reader:  r,
 		Handler: f,
