@@ -119,7 +119,7 @@ func (this *Client) SetBuffer(size int) *Client {
 func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Option) {
 	this.key = k
 	this.Reader = r
-	this.SetBuffer(4096) //设置缓存区4KB
+	this.SetBuffer(4096) //设置缓存区4KB,能大幅度提升性能
 	//需要先初始化，方便OnConnect的数据读取,run的时候还会声明一次最新的读取函数
 	this.AllReader = ios.NewAllReader(this.Reader, this.Event.OnReadFrom)
 	this.MoreWriter = ios.NewMoreWriter(r)
@@ -267,7 +267,7 @@ func (this *Client) SetKey(key string) *Client {
 	return this
 }
 
-func (this *Client) Timer(t time.Duration, f Option) {
+func (this *Client) Timer(t time.Duration, f func(c *Client)) {
 	tick := time.NewTicker(t)
 	defer tick.Stop()
 	for {
@@ -330,6 +330,7 @@ func (this *Client) run(ctx context.Context) (err error) {
 		this.Event = &Event{}
 	}
 
+	//运行的时候,重新加载下OnReadFrom
 	this.AllReader = ios.NewAllReader(this.Reader, this.Event.OnReadFrom)
 
 	//超时机制
