@@ -3,12 +3,9 @@ package tcp
 import (
 	"context"
 	"github.com/injoyai/ios"
-	"io"
 	"net"
 	"time"
 )
-
-var _ ios.AReadWriteCloser = (*Client)(nil)
 
 func NewDial(addr string) ios.DialFunc {
 	return func(ctx context.Context) (ios.ReadWriteCloser, string, error) {
@@ -17,29 +14,10 @@ func NewDial(addr string) ios.DialFunc {
 	}
 }
 
-func Dial(addr string) (*Client, error) {
+func Dial(addr string) (net.Conn, error) {
 	return DialTimeout(addr, 0)
 }
 
-func DialTimeout(addr string, timeout time.Duration) (*Client, error) {
-	c, err := net.DialTimeout("tcp", addr, timeout)
-	if err != nil {
-		return nil, err
-	}
-	return &Client{
-		Conn: c,
-	}, nil
-}
-
-type Client struct {
-	net.Conn
-	Handler func(r io.Reader) ([]byte, error)
-}
-
-func (this *Client) ReadAck() (ios.Acker, error) {
-	if this.Handler == nil {
-		this.Handler = ios.NewRead(make([]byte, 1024*4))
-	}
-	bs, err := this.Handler(this.Conn)
-	return ios.Ack(bs), err
+func DialTimeout(addr string, timeout time.Duration) (net.Conn, error) {
+	return net.DialTimeout("tcp", addr, timeout)
 }
