@@ -111,3 +111,11 @@ func DealMessageWithWriter(w io.Writer) func(c *Client, msg ios.Acker) {
 		}
 	}
 }
+
+// DisconnectWithAfter 断开连接等待
+func DisconnectWithAfter(t time.Duration) func(c *Client, err error) error {
+	return func(c *Client, err error) error {
+		<-time.After(t)
+		return nil
+	}
+}
