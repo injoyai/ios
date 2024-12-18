@@ -27,3 +27,13 @@ func CheckReader(r Reader) error {
 		return ErrUnknownReader
 	}
 }
+
+func NewMReaderWithChan(c chan []byte) MReader {
+	return MReadFunc(func() ([]byte, error) {
+		bs, ok := <-c
+		if !ok {
+			return nil, io.EOF
+		}
+		return bs, nil
+	})
+}
