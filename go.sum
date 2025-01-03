@@ -565,8 +565,8 @@ github.com/injoyai/base v1.0.18/go.mod h1:2JSv8ndJ/FmKyazfhDBewzylEbVfJV0EE/r6kO
 github.com/injoyai/conv v1.1.5/go.mod h1:PYoJcbqaz4eyQUovzErRFCuDSPGB4L07AvdmFsTrTew=
 github.com/injoyai/conv v1.1.10 h1:LefmOA4SKTEw6gGHXZ6UT8n2K+OzCttYSW8lVmvgQd8=
 github.com/injoyai/conv v1.1.10/go.mod h1:PYoJcbqaz4eyQUovzErRFCuDSPGB4L07AvdmFsTrTew=
-github.com/injoyai/logs v1.0.8 h1:VxKRrdSRurkLIrDh40ZeMzoHiQ0ac4UQ3U634vF4qpY=
-github.com/injoyai/logs v1.0.8/go.mod h1:CLchJCGhb39Obyrci816R+KMtbxZhgPs0FuikhyixK4=
+github.com/injoyai/logs v1.0.9 h1:Wq7rCVIQKcPx+z+lzKQb2qyDK4TML/cgmaSZN9tx33c=
+github.com/injoyai/logs v1.0.9/go.mod h1:CLchJCGhb39Obyrci816R+KMtbxZhgPs0FuikhyixK4=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/json-iterator/go v1.1.9/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=
