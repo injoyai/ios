@@ -1,8 +1,8 @@
 package frame
 
 import (
+	"bytes"
 	"errors"
-	"github.com/injoyai/base/bytes"
 	"github.com/injoyai/conv"
 	"io"
 	"math"

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	bytes2 "github.com/injoyai/base/bytes"
 	"github.com/injoyai/conv"
 	"io"
 )
@@ -101,7 +100,7 @@ func (this *SplitLength) Check(bs []byte) (bool, bool) {
 	//获取长度字节
 	lenBytes := bs[this.LenStart : this.LenEnd+1]
 	if this.LittleEndian {
-		lenBytes = bytes2.Reverse(lenBytes)
+		lenBytes = Reverse(lenBytes)
 	}
 	length := conv.Int(lenBytes) + this.LenFixed
 
@@ -120,4 +119,12 @@ func (this *SplitTotal) Check(bs []byte) (bool, bool) {
 	}
 	return len(bs) >= int(this.Least),
 		this.Most == 0 || len(bs) <= int(this.Most)
+}
+
+func Reverse(bs []byte) []byte {
+	x := make([]byte, len(bs))
+	for i, v := range bs {
+		x[len(bs)-i-1] = v
+	}
+	return x
 }

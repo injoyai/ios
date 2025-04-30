@@ -1,12 +1,12 @@
 package frame
 
 import (
+	"bytes"
 	"compress/gzip"
+	"encoding/hex"
 	"fmt"
-	"github.com/injoyai/base/bytes"
 	"github.com/injoyai/base/maps"
 	"github.com/injoyai/conv"
-	"github.com/injoyai/ios/client"
 	"github.com/injoyai/logs"
 	"hash/crc32"
 	"io"
@@ -119,7 +119,7 @@ func (this *Frame) SetCompress(n uint8) *Frame {
 }
 
 func (this *Frame) String() string {
-	return this.Bytes().HEX()
+	return hex.EncodeToString(this.Bytes())
 }
 
 func (this *Frame) encodeData() []byte {
@@ -159,7 +159,7 @@ func (this *Frame) decodeData() error {
 	return nil
 }
 
-func (this *Frame) Bytes() bytes.Entity {
+func (this *Frame) Bytes() []byte {
 	data := []byte(nil)
 	data = append(data, start...)
 	dataBytes := this.encodeData()
@@ -271,7 +271,7 @@ func Decode(bs []byte) (*Frame, error) {
 
 }
 
-func DealWith(w io.Writer, tag *maps.Safe, bs client.Message) (*Frame, error) {
+func DealWith(w io.Writer, tag *maps.Safe, bs []byte) (*Frame, error) {
 
 	p, err := Decode(bs)
 	if err != nil {

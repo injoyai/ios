@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"github.com/injoyai/base/bytes"
 	"github.com/injoyai/base/maps"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
@@ -14,8 +13,7 @@ import (
 )
 
 type (
-	Option  func(c *Client)
-	Message = bytes.Entity
+	Option func(c *Client)
 )
 
 func Run(f ios.DialFunc, op ...Option) error {
