@@ -98,3 +98,49 @@ func (this *MoreWrite) WriteChan(c chan any) error {
 		}
 	}
 }
+
+type PlanWrite struct {
+	io.Writer
+	*Plan
+	OnWrite func(*Plan)
+}
+
+func (this *PlanWrite) Write(p []byte) (n int, err error) {
+	if this.Plan == nil {
+		this.Plan = &Plan{
+			Index:   0,
+			Total:   0,
+			Current: 0,
+			Bytes:   nil,
+		}
+	}
+	this.Plan.Index++
+	this.Plan.Current += int64(len(p))
+	this.Plan.Bytes = &p
+	if this.OnWrite != nil {
+		this.OnWrite(this.Plan)
+	}
+	if this.Plan.Err != nil {
+		return 0, this.Plan.Err
+	}
+	return this.Writer.Write(*this.Plan.Bytes)
+}
+
+type Plan struct {
+	Index   int64
+	Total   int64
+	Current int64
+	Bytes   *[]byte
+	Err     error
+}
+
+func (this *Plan) SetTotal(total int64) {
+	this.Total = total
+}
+
+func (this *Plan) Rate() float64 {
+	if this.Total == 0 {
+		return 0
+	}
+	return float64(this.Current) / float64(this.Total)
+}
