@@ -21,6 +21,7 @@ var (
 	WithSSH       = ssh.NewDial
 	WithTCP       = tcp.NewDial
 	WithWebsocket = websocket.NewDial
+	WithHID       = hid.NewDial
 )
 
 func Dial(dial ios.DialFunc, op ...client.Option) (*client.Client, error) {
