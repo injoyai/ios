@@ -3,6 +3,7 @@ package dial
 import (
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
+	"github.com/injoyai/ios/module/hid"
 	"github.com/injoyai/ios/module/memory"
 	"github.com/injoyai/ios/module/mqtt"
 	"github.com/injoyai/ios/module/rabbitmq"
@@ -116,4 +117,16 @@ func RedialMemory(key string, op ...client.Option) *client.Client {
 
 func RunMemory(key string, op ...client.Option) error {
 	return RedialMemory(key, op...).Run()
+}
+
+func HID(vendorID, productID uint16, op ...client.Option) (*client.Client, error) {
+	return client.Dial(hid.NewDial(vendorID, productID), op...)
+}
+
+func RedialHID(vendorID, productID uint16, op ...client.Option) *client.Client {
+	return client.Redial(hid.NewDial(vendorID, productID), op...)
+}
+
+func RunHID(vendorID, productID uint16, op ...client.Option) error {
+	return RedialHID(vendorID, productID, op...).Run()
 }

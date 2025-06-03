@@ -11,6 +11,7 @@ require (
 	github.com/injoyai/base v1.0.18
 	github.com/injoyai/conv v1.1.10
 	github.com/injoyai/logs v1.0.9
+	github.com/karalabe/hid v1.0.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	golang.org/x/crypto v0.25.0
 )
