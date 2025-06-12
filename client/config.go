@@ -90,7 +90,10 @@ func ReconnectWithRetreat(start, max time.Duration, multi uint8) func(c *Client,
 				if wait >= max {
 					wait = max
 				}
-				c.Logger.Errorf("[%s] %v,等待%d秒重试\n", c.GetKey(), common.DealErr(err), wait/time.Second)
+				if c.GetKey() != "" {
+					k = c.GetKey()
+				}
+				c.Logger.Errorf("[%s] %v,等待%d秒重试\n", k, common.DealErr(err), wait/time.Second)
 			}
 		}
 	}
