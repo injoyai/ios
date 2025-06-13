@@ -6,11 +6,11 @@ import (
 )
 
 // Pipe 一个双向通道
-func Pipe(cap uint, timeout ...time.Duration) (IO, IO) {
+func Pipe(cap int, timeout ...time.Duration) (IO, IO) {
 	return NewPiper(cap, timeout...).IO()
 }
 
-func NewPiper(cap uint, timeout ...time.Duration) *Piper {
+func NewPiper(cap int, timeout ...time.Duration) *Piper {
 	return &Piper{
 		Pipe1: chans.NewIO(cap, timeout...),
 		Pipe2: chans.NewIO(cap, timeout...),

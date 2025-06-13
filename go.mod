@@ -1,6 +1,6 @@
 module github.com/injoyai/ios
 
-go 1.18
+go 1.20
 
 require (
 	github.com/DrmagicE/gmqtt v0.5.0
@@ -8,10 +8,9 @@ require (
 	github.com/fatih/color v1.13.0
 	github.com/goburrow/serial v0.1.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/injoyai/base v1.0.18
-	github.com/injoyai/conv v1.1.10
+	github.com/injoyai/base v1.2.8
+	github.com/injoyai/conv v1.2.5
 	github.com/injoyai/logs v1.0.9
-	github.com/karalabe/hid v1.0.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	golang.org/x/crypto v0.25.0
 )
