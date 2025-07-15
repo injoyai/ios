@@ -2,19 +2,22 @@ package memory
 
 import (
 	"fmt"
+	"github.com/injoyai/base/maps"
 	"github.com/injoyai/ios"
 )
 
+var manage = maps.NewGeneric[string, *Server]()
+
 func NewListen(key string) func() (ios.Listener, error) {
 	return func() (ios.Listener, error) {
-		s, _ := manage.GetOrSetByHandler(key, func() (interface{}, error) {
+		s, _ := manage.GetOrSetByHandler(key, func() (*Server, error) {
 			return &Server{
 				key: key,
 				Ch:  make(chan *Client, 1),
 			}, nil
 		})
-		manage.Set(s, s)
-		return s.(*Server), nil
+		manage.Set(key, s)
+		return s, nil
 	}
 }
 
@@ -34,6 +37,6 @@ func (this *Server) Accept() (ios.ReadWriteCloser, string, error) {
 
 func (this *Server) Close() error {
 	//同net关闭服务,不影响已连接的客户端
-	manage.Del(this)
+	manage.Del(this.key)
 	return nil
 }
