@@ -116,22 +116,22 @@ func (this *PlanWrite) Write(p []byte) (n int, err error) {
 	}
 	this.Plan.Index++
 	this.Plan.Current += int64(len(p))
-	this.Plan.Bytes = &p
+	this.Plan.Bytes = p
 	if this.OnWrite != nil {
 		this.OnWrite(this.Plan)
 	}
 	if this.Plan.Err != nil {
 		return 0, this.Plan.Err
 	}
-	return this.Writer.Write(*this.Plan.Bytes)
+	return this.Writer.Write(this.Plan.Bytes)
 }
 
 type Plan struct {
 	Index   int64
 	Total   int64
 	Current int64
-	Bytes   *[]byte
-	Err     error
+	Bytes   []byte //数据内容
+	Err     error  //错误信息
 }
 
 func (this *Plan) SetTotal(total int64) {
