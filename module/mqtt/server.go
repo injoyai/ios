@@ -32,7 +32,7 @@ func NewNetListen(l net.Listener) ios.ListenFunc {
 			addr:   l.Addr().String(),
 			ch:     make(chan *Conn),
 			closer: safe.NewCloser(),
-			m:      maps.NewSafe(),
+			m:      maps.NewGeneric[string, *Conn](),
 		}
 
 		srv := server.New(server.WithTCPListener(l))
@@ -62,13 +62,13 @@ func NewNetListen(l net.Listener) ios.ListenFunc {
 				clientID := client.ClientOptions().ClientID
 				srv.SubscriptionService().UnsubscribeAll(clientID)
 				if conn, _ := s.m.GetAndDel(clientID); conn != nil {
-					conn.(*Conn).CloseWithErr(err)
+					conn.CloseWithErr(err)
 				}
 			},
 			OnMsgArrived: func(ctx context.Context, client server.Client, msg *server.MsgArrivedRequest) error {
 				clientID := client.ClientOptions().ClientID
 				if conn := s.m.MustGet(clientID); conn != nil {
-					conn.(*Conn).ch <- msg.Message.Payload
+					conn.ch <- msg.Message.Payload
 				}
 				return nil
 			},
@@ -134,7 +134,7 @@ type Server struct {
 	ch     chan *Conn
 	stop   func(ctx context.Context) error
 	closer *safe.Closer
-	m      *maps.Safe
+	m      *maps.Generic[string, *Conn]
 }
 
 func (this *Server) Close() error {
