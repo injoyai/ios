@@ -65,6 +65,7 @@ func NewReadFromWithHandler(f func(r io.Reader) ([]byte, error)) func(r Reader) 
 
 		case io.Reader:
 			if buffer == nil {
+				//todo 优化
 				buffer = bufio.NewReaderSize(v, 1024*4)
 			}
 			if f == nil {
