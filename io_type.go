@@ -81,6 +81,21 @@ type (
 		AReader
 	}
 
+	// FReader FromReader 从io.Reader中读取数据
+	FReader interface {
+		ReadFrom(r io.Reader) ([]byte, error)
+	}
+
+	// Freer 释放内存
+	Freer interface {
+		Free()
+	}
+
+	FreeFReader interface {
+		FReader
+		Freer
+	}
+
 	Runner interface {
 		Closer
 		Run() error

@@ -4,14 +4,32 @@ import (
 	"io"
 )
 
-func NewAllReader(r Reader, f Read) AllReader {
+func NewFreeFReader(f func(r io.Reader) ([]byte, error)) FreeFReader {
+	if f == nil {
+		return nil
+	}
+	return FreeFReadFunc(f)
+}
+
+type FreeFReadFunc func(r io.Reader) ([]byte, error)
+
+func (this FreeFReadFunc) ReadFrom(r io.Reader) ([]byte, error) {
+	return this(r)
+}
+
+func (this FreeFReadFunc) Free() {}
+
+func NewAllReader(r Reader, f FreeFReader) *AllRead {
+	if f == nil {
+		f = DefaultFreeFReaderPool.Get()
+	}
 	if v, ok := r.(*AllRead); ok {
-		v.Handler = f
+		v.freeFromReader = f
 		return v
 	}
 	return &AllRead{
-		Reader:  r,
-		Handler: f,
+		Reader:         r,
+		freeFromReader: f,
 	}
 }
 
@@ -19,9 +37,21 @@ func NewAllReader(r Reader, f Read) AllReader {
 type AllRead struct {
 	//只能是[Reader|MReader|AReader]类型
 	Reader
-	//当Reader是io.Reader时有效
-	Handler Read
-	cache   []byte
+
+	//用来缓存读取到的数据,方便下次使用
+	//例如MReader,一次读取100字节,但是用户只取走40字节,剩下60字节缓存用于下次
+	//不使用sync.Pool,因为大小不可知,防止被扩容造成的内存泄漏
+	cache []byte
+
+	//当Reader是io.Reader时有效,带Free(用于内存释放)的FromReader
+	//替换的时候,推荐手动Free(),能回到pool中,否则按正常流程被GC()
+	freeFromReader FreeFReader
+}
+
+func (this *AllRead) Free() {
+	this.Reader = nil
+	this.cache = nil
+	this.freeFromReader.Free()
 }
 
 func (this *AllRead) Read(p []byte) (n int, err error) {
@@ -57,8 +87,8 @@ func (this *AllRead) Read(p []byte) (n int, err error) {
 		return
 	}
 
-	//一次性全部读取完
-	this.cache = nil
+	//一次性全部读取完,则清空缓冲区
+	this.cache = this.cache[:0]
 	return
 
 }
@@ -71,27 +101,31 @@ func (this *AllRead) ReadMessage() (bs []byte, err error) {
 		a, err := r.ReadAck()
 		defer a.Ack()
 		return a.Payload(), err
+	case io.Reader:
+		return this.freeFromReader.ReadFrom(r)
 	default:
-		if this.Handler == nil {
-			this.Handler = NewRead4KB()
-		}
-		return this.Handler(this)
+		return nil, ErrUnknownReader
 	}
 }
 
-func (this *AllRead) ReadAck() (a Acker, err error) {
+func (this *AllRead) ReadAck() (Acker, error) {
 	switch r := this.Reader.(type) {
 	case MReader:
 		bs, err := r.ReadMessage()
-		return Ack(bs), err
+		if err != nil {
+			return nil, err
+		}
+		return Ack(bs), nil
 	case AReader:
 		return r.ReadAck()
-	default:
-		if this.Handler == nil {
-			this.Handler = NewRead4KB()
+	case io.Reader:
+		bs, err := this.freeFromReader.ReadFrom(this)
+		if err != nil {
+			return nil, err
 		}
-		bs, err := this.Handler(this)
 		return Ack(bs), err
+	default:
+		return nil, ErrUnknownReader
 	}
 }
 

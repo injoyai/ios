@@ -11,6 +11,28 @@ var _ ios.Listener = (*Server)(nil)
 
 func NewListen(port int) func() (ios.Listener, error) {
 	return func() (ios.Listener, error) {
+		/*
+			开启端口复用方式,windows:
+			config := net.ListenConfig{
+						Control: func(network, address string, c syscall.RawConn) error {
+							return c.Control(func(fd uintptr) {
+								syscall.SetsockoptInt(syscall.Handle(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+							})
+						},
+					}
+			linux:
+			net.ListenConfig{
+			        Control: func(network, address string, c syscall.RawConn) error {
+			            return c.Control(func(fd uintptr) {
+			                // 开启 SO_REUSEADDR
+			                syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
+
+			                // 可选：开启 SO_REUSEPORT（Linux 3.9+）
+			                syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEPORT, 1)
+			            })
+			        },
+			    }
+		*/
 		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 		if err != nil {
 			return nil, err

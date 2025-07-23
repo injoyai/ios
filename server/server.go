@@ -142,6 +142,8 @@ func (this *Server) CloseAllClient(err error) {
 		c.CloseWithErr(err)
 		return true
 	})
+	this.clientMu.Lock()
+	defer this.clientMu.Unlock()
 	this.client = make(map[string]*client.Client)
 }
 
@@ -225,6 +227,7 @@ func (this *Server) run(ctx context.Context) error {
 func (this *Server) onChangeKey(c *client.Client, oldKey string) {
 	//判断是否存在老连接,存在则关闭老连接(被挤下线)
 	this.clientMu.RLock()
+	//查找这个新key是否存在实例,存在则判断2个是否是一个,不是一个则关闭老的那个
 	old, ok := this.client[c.GetKey()]
 	this.clientMu.RUnlock()
 	if ok && old != c {

@@ -1,15 +1,15 @@
 package client
 
 import (
-	"bufio"
 	"context"
 	"errors"
+	"io"
+	"time"
+
 	"github.com/injoyai/base/maps"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/module/common"
-	"io"
-	"time"
 )
 
 type (
@@ -86,47 +86,89 @@ type Client struct {
 	ios.AllReader  //实现多种读取方式
 	ios.MoreWriter //多个方式写入
 
-	Info                         //基本信息
-	*Event                       //事件
-	*safe.Closer                 //关闭
+	//基本信息,一些连接时间,数据时间,数据大小等数据
+	Info
+
+	//各种事件,连接成功事件,数据读取(分包)事件,数据处理事件,连接关闭事件等
+	//由用户自行配置,如果必须的事件未设置,则使用默认值
+	//例如未设置读取(分包)事件,则默认使用一次读取最多4KB,能满足绝大部分需求
+	*Event
+
+	//安全关闭,单次的生命周期,每次重连都会重新声明
+	*safe.Closer
 	*safe.Runner                 //运行,全局的生命周期,包括重试
 	Logger       common.Logger   //日志
-	Tag          *maps.Safe      //标签,用于记录连接的一些信息
+	Tag          *maps.Safe      //标签,用于自定义记录连接的一些信息
 	Ctx          context.Context //上下文
 	timeout      *safe.Runner    //超时机制
 
-	key        string        //自定义标识
-	redial     bool          //是否自动重连
-	redialSign chan struct{} //重连信号,未设置自动重连也可以手动重连
-	dialedSign chan struct{} //已连接信号,连接的时候会释放信号,关闭的时候会重新阻塞,注意不是一个
-	dial       ios.DialFunc  //连接函数
-	options    []Option      //选项
+	key    string //自定义标识
+	redial bool   //是否自动重连
+
+	//全局重连信号,未设置自动重连也可以手动重连,
+	//向这个通道发送一个信号,则客户端会进行断开重连
+	redialSign chan struct{}
+
+	//全局已连接信号,仅在连接成功的时候会向这个通道发送10个信号,
+	//便于一些逻辑的判断,如果改成单个生命周期的监听,会改变底层指针,不适用
+	dialedSign chan struct{}
+
+	dial    ios.DialFunc //连接函数
+	options []Option     //选项
 }
 
-// SetBuffer 仅对io.Reader有效
-func (this *Client) SetBuffer(size int) *Client {
-	switch v := this.Reader.(type) {
-	case ios.MReader:
-	case ios.AReader:
-	case io.Reader:
-		this.Reader = bufio.NewReaderSize(v, size)
+// initAllReader 初始化AllReader
+func (this *Client) initAllReader() {
+	switch v := this.AllReader.(type) {
+	case nil:
+	case ios.Freer:
+		v.Free()
 	}
-	return this
+	this.AllReader = ios.NewAllReader(this.Reader, ios.NewFreeFReader(this.Event.OnReadFrom))
+}
+
+// 释放单次生命周期的内存
+func (this *Client) free() {
+	//释放Reader(仅bufio.Reader有效)的内存
+	if v, ok := this.Reader.(*ios.BufferReader); ok && v.Cap() == ios.DefaultBufferSize {
+		bufferPool.Put(v)
+	}
+	//释放AllReader的内存,读取数据的时候申明了内存,需要释放下,防止内存泄漏
+	if v, ok := this.AllReader.(ios.Freer); ok {
+		v.Free()
+	}
 }
 
 func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Option) {
 	this.key = k
-	this.Reader = r
-	this.SetBuffer(4096) //设置缓存区4KB,能大幅度提升性能
-	//需要先初始化，方便OnConnect的数据读取,run的时候还会声明一次最新的读取函数
-	this.AllReader = ios.NewAllReader(this.Reader, this.Event.OnReadFrom)
+
+	//设置缓存区4KB,针对io.Reader有效,能大幅度提升性能
+	//这个是缓存区,和实际读取的buffer不一样,固有2个内存的申明,
+	//io经常什么释放,需要注意内存的释放问题
+	//所以固定了size为4kb,方便内存的复用,减少(频繁重连)内存泄漏情况
+	switch v := r.(type) {
+	case io.Reader:
+		buf := bufferPool.Get().(*ios.BufferReader)
+		buf.SetReader(v)
+		this.Reader = buf
+	default:
+		this.Reader = r
+	}
+
+	//需要先初始化，方便OnConnect的数据读取,run的时候还会声明一次最新(用户设置过)的读取函数
+	//转换为FreeFromReader,附带内存释放的FromReader
+	//Event中的内存由用户自行控制,如果未配置(nil),则由全局pool控制生成
+	this.initAllReader()
 	this.MoreWriter = ios.NewMoreWriter(r)
 	this.Info.DialTime = time.Now()
 	this.options = op
+
 	//Runner现在作为全局的生命周期,Closer控制单次的生命周期
 	//this.Runner = safe.NewRunnerWithContext(this.Ctx, this.run)
-	this.Closer = safe.NewCloser().SetCloseFunc(func(err error) error {
 
+	//重置Closer,非重新申明,节约内存
+	this.Closer.Reset()
+	this.Closer.SetCloseFunc(func(err error) error {
 		//关闭真实实例
 		if er := r.Close(); er != nil {
 			return er
@@ -139,8 +181,13 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 		if this.Event.OnDisconnect != nil {
 			this.Event.OnDisconnect(this, err)
 		}
+
+		//释放内存,读取数据的时候申明了内存,需要释放下,防止内存泄漏
+		this.free()
+
 		return nil
 	})
+
 	//写入事件
 	this.MoreWriter.(*ios.MoreWrite).Option = []ios.WriteOption{
 		func(p []byte) (_ []byte, err error) {
@@ -187,9 +234,10 @@ func (this *Client) _dial(must bool, dial ios.DialFunc, op ...Option) (err error
 		}
 	}
 	this.SetReadWriteCloser(k, r, op...)
-	//连接事件
+	//打印日志,由op选项控制是否输出和日志等级
 	this.Logger.Infof("[%s] 连接服务成功...\n", this.GetKey())
 	if this.Event.OnConnected != nil {
+		//连接事件
 		if err := this.Event.OnConnected(this); err != nil {
 			this.CloseWithErr(err)
 			return err
@@ -234,7 +282,7 @@ func (this *Client) SetReadTimeout(timeout time.Duration) *Client {
 		}
 	})
 
-	//不用判断客户端是否已经运行,可能还没开始执行
+	//不用判断客户端是否已经运行,可能还没开始执行,可能还未调用Run
 	//if this.timeout.Running() {
 	this.timeout.Restart()
 	//}
@@ -320,6 +368,13 @@ func (this *Client) Done() <-chan struct{} {
 	return this.Runner.Done()
 }
 
+//func (this *Client) run(ctx context.Context) error {
+//	//完整生命周期结束后,释放全局内存
+//	defer this.freeAll()
+//	//这个_run会递归重试连接,固提取到这里来
+//	return this._run(ctx)
+//}
+
 // run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?
 func (this *Client) run(ctx context.Context) (err error) {
 
@@ -328,8 +383,8 @@ func (this *Client) run(ctx context.Context) (err error) {
 		this.Event = &Event{}
 	}
 
-	//运行的时候,重新加载下OnReadFrom
-	this.AllReader = ios.NewAllReader(this.Reader, this.Event.OnReadFrom)
+	//运行的时候,重新加载下OnReadFrom,因为用户的Event是后设置的,固重新加载下
+	this.initAllReader()
 
 	//超时机制
 	this.timeout.Start()
@@ -363,31 +418,32 @@ func (this *Client) run(ctx context.Context) (err error) {
 
 		default:
 
-			//读取数据,目前支持3种类型,Reader, AReader, MReader
-			//如果是AReader,MReader,说明是分包分好的数据,则直接读取即可
-			//如果是Reader,则数据还处于粘包状态,需要调用时间OnReadBuffer,来进行读取
-			ack, err := this.ReadAck()
-			if err != nil {
-				if this.Event.OnDealErr != nil {
-					err = this.Event.OnDealErr(this, err)
-				}
-				this.CloseWithErr(err)
-				//交给closer进行处理接下来的逻辑,固这里不使用return
-				//例如重新连接等操作,这样只用写一个地方,简化代码
-				continue
-			}
-			this.Info.ReadTime = time.Now()
-			this.Info.ReadCount++
-			this.Info.ReadBytes += len(ack.Payload())
-
-			//处理数据,使用事件OnDealMessage处理数据,
-			//如果未实现,则不处理数据,则不会确认消息
-			this.Logger.Readln("["+this.GetKey()+"] ", ack.Payload())
-			if this.Event.OnDealMessage != nil {
-				this.Event.OnDealMessage(this, ack)
-			}
-
 		}
+
+		//读取数据,目前支持3种类型,Reader, AReader, MReader
+		//如果是AReader,MReader,说明是分包分好的数据,则直接读取即可
+		//如果是Reader,则数据还处于粘包状态,需要调用时间OnReadBuffer,来进行读取
+		ack, err := this.ReadAck()
+		if err != nil {
+			if this.Event.OnDealErr != nil {
+				err = this.Event.OnDealErr(this, err)
+			}
+			this.CloseWithErr(err)
+			//交给closer进行处理接下来的逻辑,固这里不使用return
+			//例如重新连接等操作,这样只用写一个地方,简化代码
+			continue
+		}
+		this.Info.ReadTime = time.Now()
+		this.Info.ReadCount++
+		this.Info.ReadBytes += len(ack.Payload())
+
+		//处理数据,使用事件OnDealMessage处理数据,
+		//如果未实现,则不处理数据,则不会确认消息
+		this.Logger.Readln("["+this.GetKey()+"] ", ack.Payload())
+		if this.Event.OnDealMessage != nil {
+			this.Event.OnDealMessage(this, ack)
+		}
+
 	}
 
 }
