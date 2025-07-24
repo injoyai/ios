@@ -5,12 +5,12 @@ go 1.20
 require (
 	github.com/DrmagicE/gmqtt v0.5.0
 	github.com/eclipse/paho.mqtt.golang v1.5.0
-	github.com/fatih/color v1.13.0
+	github.com/fatih/color v1.18.0
 	github.com/goburrow/serial v0.1.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/injoyai/base v1.2.13
 	github.com/injoyai/conv v1.2.5
-	github.com/injoyai/logs v1.0.9
+	github.com/injoyai/logs v1.0.12
 	github.com/rabbitmq/amqp091-go v1.10.0
 	golang.org/x/crypto v0.25.0
 )
@@ -26,8 +26,8 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/mattn/go-colorable v0.1.9 // indirect
-	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
@@ -45,7 +45,7 @@ require (
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	google.golang.org/genproto v0.0.0-20221201204527-e3fa12d562f3 // indirect
