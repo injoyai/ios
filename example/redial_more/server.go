@@ -6,7 +6,7 @@ import (
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/server"
 	"github.com/injoyai/ios/server/listen"
-	"github.com/injoyai/logs"
+	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"time"
@@ -18,7 +18,7 @@ func main() {
 		go func() {
 			for {
 				<-time.After(time.Second * 3)
-				logs.Trace("客户端数量:", s.GetClientLen())
+				log.Println("客户端数量:", s.GetClientLen())
 			}
 		}()
 		s.Logger.Debug(false)
