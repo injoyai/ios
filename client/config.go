@@ -65,6 +65,11 @@ func ReconnectWithInterval(t time.Duration) func(ctx context.Context, c *Client,
 	}
 }
 
+var (
+	// defaultReconnect 默认重连机制
+	defaultReconnect = ReconnectWithRetreat(time.Second*2, time.Second*32, 2)
+)
+
 // ReconnectWithRetreat 退避重试
 func ReconnectWithRetreat(start, max time.Duration, multi uint8) func(ctx context.Context, c *Client, dial ios.DialFunc) (ios.ReadWriteCloser, string, error) {
 	if start < 0 {

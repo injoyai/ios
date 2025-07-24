@@ -86,8 +86,8 @@ type Client struct {
 	//便于一些逻辑的判断,如果改成单个生命周期的监听,会改变底层指针,不适用
 	dialedSign chan struct{}
 
-	dial    ios.DialFunc //连接函数
-	options []Option     //选项
+	dial    ios.DialFunc //缓存连接函数,重连的时候使用
+	options []Option     //缓存选项,重连的时候使用
 }
 
 // Reset 重置参数,方便配合sync.Pool使用
@@ -228,11 +228,24 @@ func (this *Client) _dial(ctx context.Context, must bool, dial ios.DialFunc, op 
 	this.dial = dial
 	r, k, err := this.doDial(ctx, must)
 	if err != nil {
-		//this.Closer = safe.NewCloser()
 		this.Closer.Reset()
 		this.Closer.CloseWithErr(err)
 		return err
 	}
+
+	this.SetReadWriteCloser(k, r, op...)
+
+	//打印日志,由op选项控制是否输出和日志等级
+	this.Logger.Infof("[%s] 连接服务成功...\n", this.GetKey())
+
+	//触发连接事件
+	if this.Event.OnConnected != nil {
+		if err := this.Event.OnConnected(this); err != nil {
+			this.CloseWithErr(err)
+			return err
+		}
+	}
+
 	//增加连接成功的信号,方便一些逻辑判断
 	//当连接成功的时候会发送信号通道(防止代码错误最多10个),则监听能收到连接成功的信号
 	//当连接关闭的时候,需要重新声明信号,方便下次阻塞
@@ -243,16 +256,7 @@ func (this *Client) _dial(ctx context.Context, must bool, dial ios.DialFunc, op 
 			break
 		}
 	}
-	this.SetReadWriteCloser(k, r, op...)
-	//打印日志,由op选项控制是否输出和日志等级
-	this.Logger.Infof("[%s] 连接服务成功...\n", this.GetKey())
-	if this.Event.OnConnected != nil {
-		//连接事件
-		if err := this.Event.OnConnected(this); err != nil {
-			this.CloseWithErr(err)
-			return err
-		}
-	}
+
 	return nil
 }
 
@@ -264,12 +268,13 @@ func (this *Client) doDial(ctx context.Context, must bool) (ios.ReadWriteCloser,
 		return this.dial(ctx)
 	}
 	//this.Logger.Infof("等待连接服务...\n")
+	//触发重连事件
 	if this.Event != nil && this.Event.OnReconnect != nil {
 		return this.Event.OnReconnect(ctx, this, this.dial)
 	}
 	//防止用户设置错了重试,再外层在加上一层退避重试,是否需要? 可能想重试10次就不重试就无法实现了
-	f := ReconnectWithRetreat(time.Second*2, time.Second*32, 2)
-	return f(ctx, this, this.dial)
+	//f := ReconnectWithRetreat(time.Second*2, time.Second*32, 2)
+	return defaultReconnect(ctx, this, this.dial)
 }
 
 // SetReadTimeout 设置读取超时,即距离上次读取数据时间超过该设置值,则会关闭连接,0表示不超时
@@ -300,6 +305,7 @@ func (this *Client) SetReadTimeout(ctx context.Context, timeout time.Duration) *
 	return this
 }
 
+// SetOption 设置选项
 func (this *Client) SetOption(op ...Option) *Client {
 	for _, fn := range op {
 		fn(this)
@@ -307,6 +313,7 @@ func (this *Client) SetOption(op ...Option) *Client {
 	return this
 }
 
+// GetKey 获取标识
 func (this *Client) GetKey() string {
 	return this.key
 }
