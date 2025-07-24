@@ -74,7 +74,7 @@ func Test(n int) {
 			s.Logger.SetLevel(common.LevelError)
 			s.Logger.Debug(false)
 			s.SetClientOption(func(c *client.Client) {
-				c.SetBuffer(1024 * 10)
+				//c.SetBuffer(1024 * 10)
 				c.Event.OnReadFrom = readAll
 				c.Event.OnConnected = func(c *client.Client) error {
 					return nil

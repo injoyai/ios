@@ -21,7 +21,7 @@ func Run(f ios.DialFunc, op ...Option) error {
 	if err != nil {
 		return err
 	}
-	return c.Run()
+	return c.Run(context.Background())
 }
 
 func Redial(f ios.DialFunc, op ...Option) *Client {
@@ -29,9 +29,9 @@ func Redial(f ios.DialFunc, op ...Option) *Client {
 }
 
 func RedialWithContext(ctx context.Context, dial ios.DialFunc, op ...Option) *Client {
-	c := NewWithContext(ctx)
+	c := New()
 	c.SetRedial()
-	_ = c.MustDial(dial, op...)
+	_ = c.MustDial(ctx, dial, op...)
 	return c
 }
 
@@ -40,40 +40,14 @@ func Dial(f ios.DialFunc, op ...Option) (*Client, error) {
 }
 
 func DialWithContext(ctx context.Context, dial ios.DialFunc, op ...Option) (*Client, error) {
-	c := NewWithContext(ctx)
-	err := c.Dial(dial, op...)
+	c := New()
+	err := c.Dial(ctx, dial, op...)
 	return c, err
 }
 
 func New() *Client {
-	return NewWithContext(context.Background())
-}
-
-func NewWithContext(ctx context.Context) *Client {
-	c := &Client{
-		key:        "",
-		Reader:     nil,
-		MoreWriter: nil,
-		Logger:     common.NewLogger(),
-		Info: Info{
-			CreateTime: time.Now(),
-			DialTime:   time.Now(),
-		},
-		Event: &Event{
-			OnDealErr: func(c *Client, err error) error { return common.DealErr(err) },
-		},
-		Closer:     safe.NewCloser(),
-		Runner:     safe.NewRunnerWithContext(ctx, nil),
-		Tag:        maps.NewSafe(),
-		timeout:    safe.NewRunnerWithContext(ctx, nil),
-		Ctx:        ctx,
-		redialSign: make(chan struct{}),
-		dialedSign: make(chan struct{}),
-		dial:       nil,
-		options:    nil,
-	}
-	c.Closer.CloseWithErr(errors.New("等待连接"))
-	c.Runner.SetFunc(c.run)
+	c := &Client{}
+	c.Reset()
 	return c
 }
 
@@ -96,11 +70,10 @@ type Client struct {
 
 	//安全关闭,单次的生命周期,每次重连都会重新声明
 	*safe.Closer
-	*safe.Runner                 //运行,全局的生命周期,包括重试
-	Logger       common.Logger   //日志
-	Tag          *maps.Safe      //标签,用于自定义记录连接的一些信息
-	Ctx          context.Context //上下文
-	timeout      *safe.Runner    //超时机制
+	*safe.Runner2               //运行,全局的生命周期,包括重试
+	Logger        common.Logger //日志
+	Tag           *maps.Safe    //标签,用于自定义记录连接的一些信息
+	timeout       *safe.Runner2 //超时机制
 
 	key    string //自定义标识
 	redial bool   //是否自动重连
@@ -117,25 +90,61 @@ type Client struct {
 	options []Option     //选项
 }
 
+// Reset 重置参数,方便配合sync.Pool使用
+func (this *Client) Reset() {
+	this.key = ""
+	this.Reader = nil
+	this.AllReader = nil
+	this.MoreWriter = nil
+	this.Logger = common.NewLogger()
+	this.Info = Info{
+		CreateTime: time.Now(),
+		DialTime:   time.Now(),
+	}
+	this.Event = &Event{
+		OnDealErr: func(c *Client, err error) error { return common.DealErr(err) },
+	}
+	this.Closer = safe.NewCloser()
+	this.Runner2 = safe.NewRunner2(nil)
+	this.Tag = maps.NewSafe()
+
+	this.timeout = safe.NewRunner2(nil)
+	this.redial = false
+	this.redialSign = make(chan struct{})
+	this.dialedSign = make(chan struct{})
+	this.dial = nil
+	this.options = nil
+
+	this.Closer.CloseWithErr(errors.New("等待连接"))
+	this.Runner2.SetFunc(this.run)
+}
+
 // initAllReader 初始化AllReader
 func (this *Client) initAllReader() {
 	switch v := this.AllReader.(type) {
-	case nil:
 	case ios.Freer:
-		v.Free()
+		if v != nil {
+			v.Free()
+		}
 	}
 	this.AllReader = ios.NewAllReader(this.Reader, ios.NewFreeFReader(this.Event.OnReadFrom))
 }
 
 // 释放单次生命周期的内存
 func (this *Client) free() {
-	//释放Reader(仅bufio.Reader有效)的内存
-	if v, ok := this.Reader.(*ios.BufferReader); ok && v.Cap() == ios.DefaultBufferSize {
-		bufferPool.Put(v)
+	//释放Reader的内存
+	switch v := this.Reader.(type) {
+	case *ios.BufferReader:
+		if v != nil && v.Cap() == ios.DefaultBufferSize {
+			bufferPool.Put(v)
+		}
 	}
 	//释放AllReader的内存,读取数据的时候申明了内存,需要释放下,防止内存泄漏
-	if v, ok := this.AllReader.(ios.Freer); ok {
-		v.Free()
+	switch v := this.AllReader.(type) {
+	case ios.Freer:
+		if v != nil {
+			v.Free()
+		}
 	}
 }
 
@@ -149,6 +158,7 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 	switch v := r.(type) {
 	case io.Reader:
 		buf := bufferPool.Get().(*ios.BufferReader)
+		buf.Reset()
 		buf.SetReader(v)
 		this.Reader = buf
 	default:
@@ -207,19 +217,20 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 
 }
 
-func (this *Client) MustDial(dial ios.DialFunc, op ...Option) error {
-	return this._dial(true, dial, op...)
+func (this *Client) MustDial(ctx context.Context, dial ios.DialFunc, op ...Option) error {
+	return this._dial(ctx, true, dial, op...)
 }
 
-func (this *Client) Dial(dial ios.DialFunc, op ...Option) error {
-	return this._dial(false, dial, op...)
+func (this *Client) Dial(ctx context.Context, dial ios.DialFunc, op ...Option) error {
+	return this._dial(ctx, false, dial, op...)
 }
 
-func (this *Client) _dial(must bool, dial ios.DialFunc, op ...Option) (err error) {
+func (this *Client) _dial(ctx context.Context, must bool, dial ios.DialFunc, op ...Option) (err error) {
 	this.dial = dial
-	r, k, err := this.doDial(must)
+	r, k, err := this.doDial(ctx, must)
 	if err != nil {
-		this.Closer = safe.NewCloser()
+		//this.Closer = safe.NewCloser()
+		this.Closer.Reset()
 		this.Closer.CloseWithErr(err)
 		return err
 	}
@@ -246,24 +257,24 @@ func (this *Client) _dial(must bool, dial ios.DialFunc, op ...Option) (err error
 	return nil
 }
 
-func (this *Client) doDial(must bool) (ios.ReadWriteCloser, string, error) {
+func (this *Client) doDial(ctx context.Context, must bool) (ios.ReadWriteCloser, string, error) {
 	if this.dial == nil {
 		return nil, "", errors.New("handler is nil")
 	}
 	if !must {
-		return this.dial(this.Ctx)
+		return this.dial(ctx)
 	}
 	this.Logger.Infof("等待连接服务...\n")
 	if this.Event != nil && this.Event.OnReconnect != nil {
-		return this.Event.OnReconnect(this, this.dial)
+		return this.Event.OnReconnect(ctx, this, this.dial)
 	}
 	//防止用户设置错了重试,再外层在加上一层退避重试,是否需要? 可能想重试10次就不重试就无法实现了
 	f := ReconnectWithRetreat(time.Second*2, time.Second*32, 2)
-	return f(this, this.dial)
+	return f(ctx, this, this.dial)
 }
 
 // SetReadTimeout 设置读取超时,即距离上次读取数据时间超过该设置值,则会关闭连接,0表示不超时
-func (this *Client) SetReadTimeout(timeout time.Duration) *Client {
+func (this *Client) SetReadTimeout(ctx context.Context, timeout time.Duration) *Client {
 	this.timeout.SetFunc(func(ctx context.Context) error {
 		if timeout <= 0 {
 			return nil
@@ -284,7 +295,7 @@ func (this *Client) SetReadTimeout(timeout time.Duration) *Client {
 
 	//不用判断客户端是否已经运行,可能还没开始执行,可能还未调用Run
 	//if this.timeout.Running() {
-	this.timeout.Restart()
+	this.timeout.Restart(ctx)
 	//}
 
 	return this
@@ -332,7 +343,7 @@ func (this *Client) Timer(t time.Duration, f func(c *Client)) {
 func (this *Client) GoTimerWriter(t time.Duration, f func(w ios.MoreWriter) error) {
 	go this.Timer(t, func(c *Client) {
 		err := f(c)
-		if this.Event != nil && this.Event.OnDealErr != nil {
+		if err != nil && this.Event != nil && this.Event.OnDealErr != nil {
 			err = this.Event.OnDealErr(c, err)
 		}
 		c.CloseWithErr(err)
@@ -365,15 +376,8 @@ func (this *Client) Dialed() <-chan struct{} {
 
 // Done 这个是客户端生命周期结束的关闭信号
 func (this *Client) Done() <-chan struct{} {
-	return this.Runner.Done()
+	return this.Runner2.Done()
 }
-
-//func (this *Client) run(ctx context.Context) error {
-//	//完整生命周期结束后,释放全局内存
-//	defer this.freeAll()
-//	//这个_run会递归重试连接,固提取到这里来
-//	return this._run(ctx)
-//}
 
 // run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?
 func (this *Client) run(ctx context.Context) (err error) {
@@ -387,21 +391,21 @@ func (this *Client) run(ctx context.Context) (err error) {
 	this.initAllReader()
 
 	//超时机制
-	this.timeout.Start()
+	this.timeout.Start(ctx)
 
 	for {
 		select {
 
 		case <-ctx.Done():
 			//这个ctx不是Client的ctx,而是Runner的ctx属于Client的ctx的子级
-			return this.Closer.Err()
+			return ctx.Err()
 
 		case <-this.Closer.Done():
 			//一个连接的生命周期结束
 			if this.redial {
 				//设置了重连,并且已经运行,其他都关闭
 				//这里连接的错误只会出现在上下文关闭的情况
-				if err := this.MustDial(this.dial, this.options...); err != nil {
+				if err := this.MustDial(ctx, this.dial, this.options...); err != nil {
 					return err
 				}
 				return this.run(ctx)
@@ -414,7 +418,7 @@ func (this *Client) run(ctx context.Context) (err error) {
 			this.CloseWithErr(errors.New("手动重连"))
 			//尝试建立连接,不需要重试,连接失败后会进行下一个循环
 			//下个循环会走正常的断开是否重连逻辑,设置重连会一直重试,否则退出执行
-			this.Dial(this.dial, this.options...)
+			this.Dial(ctx, this.dial, this.options...)
 
 		default:
 

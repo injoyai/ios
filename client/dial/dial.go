@@ -1,6 +1,7 @@
 package dial
 
 import (
+	"context"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/module/memory"
@@ -31,7 +32,7 @@ func Redial(dial ios.DialFunc, op ...client.Option) *client.Client {
 }
 
 func Run(dial ios.DialFunc, op ...client.Option) error {
-	return Redial(dial, op...).Run()
+	return Redial(dial, op...).Run(context.Background())
 }
 
 func TCP(addr string, op ...client.Option) (*client.Client, error) {
@@ -43,7 +44,7 @@ func RedialTCP(addr string, op ...client.Option) *client.Client {
 }
 
 func RunTCP(addr string, op ...client.Option) error {
-	return RedialTCP(addr, op...).Run()
+	return RedialTCP(addr, op...).Run(context.Background())
 }
 
 func SSH(cfg *ssh.Config, op ...client.Option) (*client.Client, error) {
@@ -55,7 +56,7 @@ func RedialSSH(cfg *ssh.Config, op ...client.Option) *client.Client {
 }
 
 func RunSSH(cfg *ssh.Config, op ...client.Option) error {
-	return RedialSSH(cfg, op...).Run()
+	return RedialSSH(cfg, op...).Run(context.Background())
 }
 
 func Websocket(addr string, op ...client.Option) (*client.Client, error) {
@@ -67,7 +68,7 @@ func RedialWebsocket(addr string, op ...client.Option) *client.Client {
 }
 
 func RunWebsocket(addr string, op ...client.Option) error {
-	return RedialWebsocket(addr, op...).Run()
+	return RedialWebsocket(addr, op...).Run(context.Background())
 }
 
 func Serial(cfg *serial.Config, op ...client.Option) (*client.Client, error) {
@@ -79,7 +80,7 @@ func RedialSerial(cfg *serial.Config, op ...client.Option) *client.Client {
 }
 
 func RunSerial(cfg *serial.Config, op ...client.Option) error {
-	return RedialSerial(cfg, op...).Run()
+	return RedialSerial(cfg, op...).Run(context.Background())
 }
 
 func MQTT(cfg *mqtt.Config, subscribe mqtt.Subscribe, publish mqtt.Publish, op ...client.Option) (*client.Client, error) {
@@ -91,7 +92,7 @@ func RedialMQTT(cfg *mqtt.Config, subscribe mqtt.Subscribe, publish mqtt.Publish
 }
 
 func RunMQTT(cfg *mqtt.Config, subscribe mqtt.Subscribe, publish mqtt.Publish, op ...client.Option) error {
-	return RedialMQTT(cfg, subscribe, publish, op...).Run()
+	return RedialMQTT(cfg, subscribe, publish, op...).Run(context.Background())
 }
 
 func Rabbitmq(addr string, cfg *rabbitmq.Config, op ...client.Option) (*client.Client, error) {
@@ -103,7 +104,7 @@ func RedialRabbitmq(addr string, cfg *rabbitmq.Config, op ...client.Option) *cli
 }
 
 func RunRabbitmq(addr string, cfg *rabbitmq.Config, op ...client.Option) error {
-	return RedialRabbitmq(addr, cfg, op...).Run()
+	return RedialRabbitmq(addr, cfg, op...).Run(context.Background())
 }
 
 func Memory(key string, op ...client.Option) (*client.Client, error) {
@@ -115,5 +116,5 @@ func RedialMemory(key string, op ...client.Option) *client.Client {
 }
 
 func RunMemory(key string, op ...client.Option) error {
-	return RedialMemory(key, op...).Run()
+	return RedialMemory(key, op...).Run(context.Background())
 }

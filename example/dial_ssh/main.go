@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
@@ -39,6 +40,6 @@ func main() {
 		}
 	})
 
-	c.Run()
+	c.Run(context.Background())
 
 }

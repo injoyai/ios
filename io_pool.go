@@ -5,30 +5,29 @@ import (
 	"sync"
 )
 
-// DefaultFreeFReaderPool 默认使用该读取方式,缓存4KB
-var DefaultFreeFReaderPool = NewFreeFReaderPoolKB(4)
+// DefaultFReaderPool 默认使用该读取方式,缓存4KB
+var DefaultFReaderPool = NewFReaderPool(DefaultBufferSize)
 
-func NewFreeFReaderPoolKB(n int) *FreeFReaderPool {
-	return &FreeFReaderPool{
-		kb: n,
+func NewFReaderPool(cap int) *FReaderPool {
+	return &FReaderPool{
+		cap: cap,
 		pool: sync.Pool{New: func() any {
-			return make([]byte, 1024*n)
+			return make([]byte, cap)
 		}},
 	}
 }
 
-type FreeFReaderPool struct {
-	kb   int
+type FReaderPool struct {
+	cap  int
 	pool sync.Pool
 }
 
-func (this *FreeFReaderPool) Get() FreeFReader {
+func (this *FReaderPool) Get() FreeFReader {
 	buffer := this.pool.Get().([]byte)
 	return &fromRead{
-		buffer:  buffer,
-		handler: NewReadFrom(buffer),
+		buffer: buffer,
 		free: func() {
-			if cap(buffer) <= this.kb<<10 {
+			if cap(buffer) <= this.cap {
 				this.pool.Put(buffer)
 			}
 		},
@@ -36,14 +35,17 @@ func (this *FreeFReaderPool) Get() FreeFReader {
 }
 
 type fromRead struct {
-	buffer  []byte
-	handler func(r Reader) ([]byte, error)
-	free    func()
-	once    sync.Once
+	buffer []byte
+	free   func()
+	once   sync.Once
 }
 
 func (this *fromRead) ReadFrom(r io.Reader) ([]byte, error) {
-	return this.handler(r)
+	n, err := r.Read(this.buffer)
+	if err != nil {
+		return nil, err
+	}
+	return this.buffer[:n], nil
 }
 
 func (this *fromRead) Free() {

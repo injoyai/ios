@@ -19,14 +19,18 @@ func Run(listen ios.ListenFunc, op ...Option) error {
 	if err != nil {
 		return err
 	}
-	return s.Run()
+	return s.Run(context.Background())
+}
+
+func RunContext(ctx context.Context, listen ios.ListenFunc, op ...Option) error {
+	s, err := New(listen, op...)
+	if err != nil {
+		return err
+	}
+	return s.Run(ctx)
 }
 
 func New(listen ios.ListenFunc, op ...Option) (*Server, error) {
-	return NewWithContext(context.Background(), listen, op...)
-}
-
-func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*Server, error) {
 	listener, err := listen()
 	if err != nil {
 		return nil, err
@@ -34,7 +38,7 @@ func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*
 	s := &Server{
 		Event:    &Event{},
 		Closer:   safe.NewCloser(),
-		Runner:   safe.NewRunnerWithContext(ctx, nil),
+		Runner2:  safe.NewRunner2(nil),
 		key:      listener.Addr(),
 		Logger:   common.NewLogger(),
 		Listener: listener,
@@ -43,7 +47,7 @@ func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*
 		}),
 		client: make(map[string]*client.Client),
 	}
-	s.Runner.SetFunc(s.run)
+	s.Runner2.SetFunc(s.run)
 	s.Timeout.SetTimeout(time.Minute * 3) //3分钟超时(3-检查间隔会超时)
 	s.Timeout.SetInterval(time.Minute)    //1分钟检查一次
 	s.Closer.SetCloseFunc(func(err error) error {
@@ -70,7 +74,7 @@ func NewWithContext(ctx context.Context, listen ios.ListenFunc, op ...Option) (*
 type Server struct {
 	*Event
 	*safe.Closer
-	*safe.Runner
+	*safe.Runner2
 	key           string
 	Logger        common.Logger             //日志
 	Listener      ios.Listener              //listener
@@ -153,8 +157,12 @@ func (this *Server) run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		go func(k string, c ios.ReadWriteCloser) {
-			cli := client.NewWithContext(ctx)
+
+		go func(ctx context.Context, k string, c ios.ReadWriteCloser) {
+			cli := clientPool.Get().(*client.Client)
+			cli.Reset()
+			defer clientPool.Put(cli)
+
 			cli.Logger = this.Logger
 			cli.SetReadWriteCloser(k, c)
 			cli.SetOption(this.clientOptions...)
@@ -167,6 +175,7 @@ func (this *Server) run(ctx context.Context) error {
 					return
 				}
 			}
+
 			//触发客户端的连接事件,是否需要2个事件?
 			if cli.Event != nil && cli.Event.OnConnected != nil {
 				if err := cli.Event.OnConnected(cli); err != nil {
@@ -178,7 +187,7 @@ func (this *Server) run(ctx context.Context) error {
 			//取消重试,客户端是被连接
 			cli.SetRedial(false)
 			//取消读取超时机制,取消客户端,实现服务端
-			cli.SetReadTimeout(0)
+			cli.SetReadTimeout(ctx, 0)
 
 			//设置修改key事件
 			onChangeKey := cli.Event.OnKeyChange
@@ -188,16 +197,18 @@ func (this *Server) run(ctx context.Context) error {
 				}
 				this.onChangeKey(c, oldKey)
 			}
-			//把已关闭的客户端从缓存中清除
-			onDisconnect := cli.Event.OnDisconnect
-			cli.Event.OnDisconnect = func(c *client.Client, err error) {
-				if onDisconnect != nil {
-					onDisconnect(c, err)
-				}
-				this.clientMu.Lock()
-				delete(this.client, c.GetKey())
-				this.clientMu.Unlock()
-			}
+
+			////把已关闭的客户端从缓存中清除
+			//onDisconnect := cli.Event.OnDisconnect
+			//cli.Event.OnDisconnect = func(c *client.Client, err error) {
+			//	if onDisconnect != nil {
+			//		onDisconnect(c, err)
+			//	}
+			//	this.clientMu.Lock()
+			//	delete(this.client, c.GetKey())
+			//	this.clientMu.Unlock()
+			//}
+
 			//保持读超时状态
 			onDealMessage := cli.Event.OnDealMessage
 			cli.Event.OnDealMessage = func(c *client.Client, message ios.Acker) {
@@ -209,18 +220,26 @@ func (this *Server) run(ctx context.Context) error {
 			//保持写超时状态
 			onWriteWith := cli.Event.OnWriteWith
 			cli.Event.OnWriteWith = func(bs []byte) ([]byte, error) {
+				this.Timeout.Keep(c)
 				if onWriteWith != nil {
 					return onWriteWith(bs)
 				}
-				this.Timeout.Keep(c)
 				return bs, nil
 			}
 
-			//设置到缓存
-			this.onChangeKey(cli, "")
-			cli.Run()
+			//把客户端设置到缓存
+			this.clientMu.Lock()
+			this.client[cli.GetKey()] = cli
+			this.clientMu.Unlock()
 
-		}(k, c)
+			cli.Run(ctx)
+
+			//等待结束之后从缓存删除客户端
+			this.clientMu.Lock()
+			delete(this.client, cli.GetKey())
+			this.clientMu.Unlock()
+
+		}(ctx, k, c)
 	}
 }
 

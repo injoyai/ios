@@ -7,8 +7,6 @@ import (
 
 var (
 	bufferPool = sync.Pool{New: func() any {
-		x := ios.NewBufferReader(nil, make([]byte, ios.DefaultBufferSize))
-		x.Reset()
-		return x
+		return ios.NewBufferReader(nil, make([]byte, ios.DefaultBufferSize))
 	}}
 )

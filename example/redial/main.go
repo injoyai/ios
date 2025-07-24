@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/client/dial"
@@ -31,15 +32,15 @@ func main() {
 
 	c := dial.RedialTCP("127.0.0.1:10086")
 	go func() {
-		logs.Err(c.Run())
+		logs.Err(c.Run(context.Background()))
 	}()
 	go func() {
 		<-time.After(time.Second * 10)
 		c.Stop()
 	}()
-	<-c.Runner.Done()
+	<-c.Done()
 	logs.Debug("结束客户端生命周期")
 	<-time.After(time.Second * 10)
-	c.Run()
+	c.Run(context.Background())
 
 }

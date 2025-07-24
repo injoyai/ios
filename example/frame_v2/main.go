@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
@@ -43,5 +44,5 @@ func main() {
 			//使用默认(自定义)结构
 			return w.WriteAny("666")
 		})
-	}).Run()
+	}).Run(context.Background())
 }

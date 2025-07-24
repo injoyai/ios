@@ -21,7 +21,7 @@ func (this FreeFReadFunc) Free() {}
 
 func NewAllReader(r Reader, f FreeFReader) *AllRead {
 	if f == nil {
-		f = DefaultFreeFReaderPool.Get()
+		f = DefaultFReaderPool.Get()
 	}
 	if v, ok := r.(*AllRead); ok {
 		v.freeFromReader = f

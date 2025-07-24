@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/client/dial"
@@ -31,6 +32,6 @@ func main() {
 		})
 	})
 	logs.PanicErr(err)
-	c.Run()
+	c.Run(context.Background())
 
 }

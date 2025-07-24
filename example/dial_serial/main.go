@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/client/dial"
 	"github.com/injoyai/ios/module/serial"
@@ -36,5 +37,5 @@ func main() {
 			c.Write(bs)
 		}
 	}()
-	c.Run()
+	c.Run(context.Background())
 }

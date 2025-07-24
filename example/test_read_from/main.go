@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/client/dial"
@@ -34,6 +35,6 @@ func main() {
 		c.GoTimerWriter(time.Second, func(w ios.MoreWriter) error {
 			return w.WriteAny(time.Now())
 		})
-	}).Run()
+	}).Run(context.Background())
 
 }
