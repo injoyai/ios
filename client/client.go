@@ -99,7 +99,6 @@ func (this *Client) Reset() {
 	this.Logger = common.NewLogger()
 	this.Info = Info{
 		CreateTime: time.Now(),
-		DialTime:   time.Now(),
 	}
 	this.Event = &Event{
 		OnDealErr: func(c *Client, err error) error { return common.DealErr(err) },
@@ -135,7 +134,7 @@ func (this *Client) free() {
 	//释放Reader的内存
 	switch v := this.Reader.(type) {
 	case *ios.BufferReader:
-		if v != nil && v.Cap() == ios.DefaultBufferSize {
+		if v == nil || v.Cap() == ios.DefaultBufferSize {
 			bufferPool.Put(v)
 		}
 	}
@@ -264,7 +263,7 @@ func (this *Client) doDial(ctx context.Context, must bool) (ios.ReadWriteCloser,
 	if !must {
 		return this.dial(ctx)
 	}
-	this.Logger.Infof("等待连接服务...\n")
+	//this.Logger.Infof("等待连接服务...\n")
 	if this.Event != nil && this.Event.OnReconnect != nil {
 		return this.Event.OnReconnect(ctx, this, this.dial)
 	}
