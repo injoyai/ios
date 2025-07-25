@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/client/dial"
+	"github.com/injoyai/ios/client/redial"
 	"github.com/injoyai/ios/server"
 	"github.com/injoyai/ios/server/listen"
 	"github.com/injoyai/logs"
@@ -37,7 +37,7 @@ func main() {
 
 	for i := 0; i < 10000; i++ {
 		go func() {
-			dial.RedialTCP("127.0.0.1:20001", func(c *client.Client) {
+			redial.TCP("127.0.0.1:20001", func(c *client.Client) {
 				c.Logger.Debug(false)
 				c.GoTimerWriter(time.Second, func(w ios.MoreWriter) error {
 					return w.WriteAny(time.Now().String())

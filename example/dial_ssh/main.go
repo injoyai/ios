@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/client/dial"
+	"github.com/injoyai/ios/client/redial"
 	"github.com/injoyai/ios/module/common"
 	"github.com/injoyai/ios/module/ssh"
 	"github.com/injoyai/logs"
@@ -16,7 +16,7 @@ import (
 
 func main() {
 
-	c := dial.RedialSSH(&ssh.Config{
+	c := redial.SSH(&ssh.Config{
 		Address:  "192.168.10.9:22",
 		User:     "root",
 		Password: "root",
