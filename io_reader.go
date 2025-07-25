@@ -4,33 +4,10 @@ import (
 	"io"
 )
 
-func NewFreeFReader(f func(r io.Reader) ([]byte, error)) FreeFReader {
-	if f == nil {
-		return nil
-	}
-	return FreeFReadFunc(f)
-}
-
-type FreeFReadFunc func(r io.Reader) ([]byte, error)
-
-func (this FreeFReadFunc) ReadFrom(r io.Reader) ([]byte, error) {
-	return this(r)
-}
-
-func (this FreeFReadFunc) Free() {}
-
-func NewAllReader(r Reader, f FreeFReader) *AllRead {
-	if f == nil {
-		f = DefaultFReaderPool.Get()
-	}
-	if v, ok := r.(*AllRead); ok {
-		v.freeFromReader = f
-		return v
-	}
-	return &AllRead{
-		Reader:         r,
-		freeFromReader: f,
-	}
+func NewAllReader(r Reader, f FReader) *AllRead {
+	x := &AllRead{}
+	x.Reset(r, f)
+	return x
 }
 
 // AllRead ios.Reader转io.Reader
@@ -45,13 +22,28 @@ type AllRead struct {
 
 	//当Reader是io.Reader时有效,带Free(用于内存释放)的FromReader
 	//替换的时候,推荐手动Free(),能回到pool中,否则按正常流程被GC()
-	freeFromReader FreeFReader
+	fromReader FReader
 }
 
-func (this *AllRead) Free() {
-	this.Reader = nil
+func (this *AllRead) Reset(r Reader, f FReader) {
+	if v, ok := r.(*AllRead); ok {
+		r = v.Reader
+	}
+	switch v := this.Reader.(type) {
+	case Buffer:
+		if v != nil && cap(v) == DefaultBufferSize {
+			bufferPool.Put(v)
+		}
+	}
+	if f == nil {
+		f = this.fromReader
+		if this.fromReader == nil {
+			f = bufferPool.Get().(Buffer)
+		}
+	}
+	this.Reader = r
 	this.cache = nil
-	this.freeFromReader.Free()
+	this.fromReader = f
 }
 
 func (this *AllRead) Read(p []byte) (n int, err error) {
@@ -88,7 +80,7 @@ func (this *AllRead) Read(p []byte) (n int, err error) {
 	}
 
 	//一次性全部读取完,则清空缓冲区
-	this.cache = this.cache[:0]
+	this.cache = nil
 	return
 
 }
@@ -102,7 +94,7 @@ func (this *AllRead) ReadMessage() (bs []byte, err error) {
 		defer a.Ack()
 		return a.Payload(), err
 	case io.Reader:
-		return this.freeFromReader.ReadFrom(r)
+		return this.fromReader.ReadFrom(r)
 	default:
 		return nil, ErrUnknownReader
 	}
@@ -119,7 +111,7 @@ func (this *AllRead) ReadAck() (Acker, error) {
 	case AReader:
 		return r.ReadAck()
 	case io.Reader:
-		bs, err := this.freeFromReader.ReadFrom(this)
+		bs, err := this.fromReader.ReadFrom(this)
 		if err != nil {
 			return nil, err
 		}

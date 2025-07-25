@@ -56,9 +56,28 @@ Client
 客户端的指针地址是唯一标识,key是表面的唯一标识,需要用户自己维护
 */
 type Client struct {
-	ios.Reader     //IO实例 目前支持ios.AReader,ios.MReader,io.Reader
-	ios.AllReader  //实现多种读取方式
-	ios.MoreWriter //多个方式写入
+
+	//IO实例,原始数据
+	//目前支持ios.AReader,ios.MReader,io.Reader
+	r ios.Reader
+
+	//全局自定义标识,表明客户端的身份
+	//默认使用的是客户端的IP:PORT
+	//例如,通过解析注册信息后,可以使用解析的IMEI等信息作为key
+	key string
+
+	//是否自动重连
+	//当连接断开的时候,自动重连,使用递归的方式
+	//还是同一个客户端
+	redial bool
+
+	//实现多种读取方式
+	//包括 io.Reader,ios.AReader,ios.MReader
+	ios.AllReader
+
+	//多个方式写入的封装
+	//包括 Writer,StringWriter,ByteWriter等
+	ios.MoreWriter
 
 	//基本信息,一些连接时间,数据时间,数据大小等数据
 	Info
@@ -70,13 +89,19 @@ type Client struct {
 
 	//安全关闭,单次的生命周期,每次重连都会重新声明
 	*safe.Closer
-	*safe.Runner2               //运行,全局的生命周期,包括重试
-	Logger        common.Logger //日志
-	Tag           *maps.Safe    //标签,用于自定义记录连接的一些信息
-	timeout       *safe.Runner2 //超时机制
 
-	key    string //自定义标识
-	redial bool   //是否自动重连
+	//运行,全局的生命周期,包括重试
+	*safe.Runner2
+
+	//日志管理,默认使用common.NewLogger
+	Logger common.Logger
+
+	//标签,用于自定义记录连接的一些信息
+	//例如,客户端的ICCID,IMEI等
+	Tag *maps.Safe
+
+	//超时机制,监听客户端的读取和写入数据,维持不超时
+	timeout *safe.Runner2
 
 	//全局重连信号,未设置自动重连也可以手动重连,
 	//向这个通道发送一个信号,则客户端会进行断开重连
@@ -86,14 +111,17 @@ type Client struct {
 	//便于一些逻辑的判断,如果改成单个生命周期的监听,会改变底层指针,不适用
 	dialedSign chan struct{}
 
-	dial    ios.DialFunc //缓存连接函数,重连的时候使用
-	options []Option     //缓存选项,重连的时候使用
+	//缓存连接函数,重连的时候使用
+	dial ios.DialFunc
+
+	//缓存选项,重连的时候使用
+	options []Option
 }
 
 // Reset 重置参数,方便配合sync.Pool使用
 func (this *Client) Reset() {
 	this.key = ""
-	this.Reader = nil
+	this.r = nil
 	this.AllReader = nil
 	this.MoreWriter = nil
 	this.Logger = common.NewLogger()
@@ -118,34 +146,35 @@ func (this *Client) Reset() {
 	this.Runner2.SetFunc(this.run)
 }
 
-// initAllReader 初始化AllReader
-func (this *Client) initAllReader() {
-	switch v := this.AllReader.(type) {
-	case ios.Freer:
-		if v != nil {
-			v.Free()
-		}
-	}
-	this.AllReader = ios.NewAllReader(this.Reader, ios.NewFreeFReader(this.Event.OnReadFrom))
+func (this *Client) Reader() ios.Reader {
+	return this.r
 }
 
-// 释放单次生命周期的内存
-func (this *Client) free() {
-	//释放Reader的内存
-	switch v := this.Reader.(type) {
-	case *ios.BufferReader:
-		if v == nil || v.Cap() == ios.DefaultBufferSize {
-			bufferPool.Put(v)
-		}
+// initAllReader 初始化AllReader
+func (this *Client) initAllReader() {
+	var f ios.FReader
+	if this.Event.OnReadFrom != nil {
+		f = ios.FReadFunc(this.Event.OnReadFrom)
 	}
-	//释放AllReader的内存,读取数据的时候申明了内存,需要释放下,防止内存泄漏
 	switch v := this.AllReader.(type) {
-	case ios.Freer:
+	case *ios.AllRead:
 		if v != nil {
-			v.Free()
+			v.Reset(this.r, f)
+			return
 		}
 	}
+	this.AllReader = ios.NewAllReader(this.r, f)
 }
+
+//// 释放单次生命周期的内存
+//func (this *Client) free() {
+//	//释放Reader的内存
+//	switch v := this.r.(type) {
+//	case *ios.BufferReader:
+//		this.r = nil
+//		bufferPool.Put(v)
+//	}
+//}
 
 func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Option) {
 	this.key = k
@@ -156,12 +185,11 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 	//所以固定了size为4kb,方便内存的复用,减少(频繁重连)内存泄漏情况
 	switch v := r.(type) {
 	case io.Reader:
-		buf := bufferPool.Get().(*ios.BufferReader)
-		buf.Reset()
-		buf.SetReader(v)
-		this.Reader = buf
+		buf := bufferReadePool.Get().(*ios.BufferReader)
+		buf.Reset(v)
+		this.r = buf
 	default:
-		this.Reader = r
+		this.r = r
 	}
 
 	//需要先初始化，方便OnConnect的数据读取,run的时候还会声明一次最新(用户设置过)的读取函数
@@ -192,7 +220,14 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 		}
 
 		//释放内存,读取数据的时候申明了内存,需要释放下,防止内存泄漏
-		this.free()
+		//释放Reader的内存
+		switch v := this.r.(type) {
+		case *ios.BufferReader:
+			if v != nil {
+				bufferReadePool.Put(v)
+			}
+			this.r = nil
+		}
 
 		return nil
 	})

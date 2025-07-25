@@ -32,7 +32,7 @@ func CopyWith(w io.Writer, r io.Reader, f func(p []byte) ([]byte, error)) (int64
 // 如何使用接口约束 [T Reader | MReader | AReader]
 func CopyBufferWith(w io.Writer, r Reader, buf []byte, f func(p []byte) ([]byte, error)) (int64, error) {
 
-	read := NewReadFrom(buf)
+	read := NewFRead2(buf)
 
 	for co, n := int64(0), 0; ; co += int64(n) {
 		bs, err := read(r)
@@ -57,7 +57,10 @@ func CopyBufferWith(w io.Writer, r Reader, buf []byte, f func(p []byte) ([]byte,
 }
 
 func ReadBuffer(r Reader, buf []byte) (Acker, error) {
-	readFunc := NewReadFrom(buf)
+	readFunc := NewFRead2(buf)
 	bs, err := readFunc(r)
-	return Ack(bs), err
+	if err != nil {
+		return nil, err
+	}
+	return Ack(bs), nil
 }

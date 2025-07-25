@@ -44,11 +44,8 @@ func (this *BufferReader) Len() int {
 	return this.j - this.i
 }
 
-func (this *BufferReader) SetReader(r io.Reader) {
+func (this *BufferReader) Reset(r io.Reader) {
 	this.r = r
-}
-
-func (this *BufferReader) Reset() {
 	this.i = 0
 	this.j = 0
 }

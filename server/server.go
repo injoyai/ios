@@ -198,17 +198,6 @@ func (this *Server) run(ctx context.Context) error {
 				this.onChangeKey(c, oldKey)
 			}
 
-			////把已关闭的客户端从缓存中清除
-			//onDisconnect := cli.Event.OnDisconnect
-			//cli.Event.OnDisconnect = func(c *client.Client, err error) {
-			//	if onDisconnect != nil {
-			//		onDisconnect(c, err)
-			//	}
-			//	this.clientMu.Lock()
-			//	delete(this.client, c.GetKey())
-			//	this.clientMu.Unlock()
-			//}
-
 			//保持读超时状态
 			onDealMessage := cli.Event.OnDealMessage
 			cli.Event.OnDealMessage = func(c *client.Client, message ios.Acker) {
@@ -232,6 +221,7 @@ func (this *Server) run(ctx context.Context) error {
 			this.client[cli.GetKey()] = cli
 			this.clientMu.Unlock()
 
+			//这里忽略了错误,如果panic的话,错误不会体现出来,
 			cli.Run(ctx)
 
 			//等待结束之后从缓存删除客户端

@@ -86,22 +86,6 @@ type (
 		ReadFrom(r io.Reader) ([]byte, error)
 	}
 
-	// Freer 释放内存
-	Freer interface {
-		Free()
-	}
-
-	FreeFReader interface {
-		FReader
-		Freer
-	}
-
-	Runner interface {
-		Closer
-		Run() error
-		Running() bool
-	}
-
 	Base64Writer interface {
 		WriteBase64(s string) error
 	}
@@ -162,6 +146,14 @@ type MReadFunc func() ([]byte, error)
 
 func (this MReadFunc) ReadMessage() ([]byte, error) { return this() }
 
+type FReadFunc func(r io.Reader) ([]byte, error)
+
+func (this FReadFunc) ReadFrom(r io.Reader) ([]byte, error) { return this(r) }
+
+type FRead2Func func(r Reader) ([]byte, error)
+
+func (this FRead2Func) ReadFrom(r io.Reader) ([]byte, error) { return this(r) }
+
 // WriteFunc 写入函数
 type WriteFunc func(p []byte) (int, error)
 
@@ -181,11 +173,3 @@ func (this Ack) Payload() []byte { return this }
 type DialFunc func(ctx context.Context) (ReadWriteCloser, string, error)
 
 type ListenFunc func() (Listener, error)
-
-type WriteTo func(w io.Writer) error
-
-//type ReadFrom func(r Reader) ([]byte, error)
-
-type Read func(r io.Reader) ([]byte, error)
-
-//=================================Struct=================================
