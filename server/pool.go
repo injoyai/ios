@@ -7,6 +7,6 @@ import (
 
 var (
 	clientPool = &sync.Pool{New: func() any {
-		return client.New()
+		return client.New(nil)
 	}}
 )

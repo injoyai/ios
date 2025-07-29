@@ -12,10 +12,6 @@ import (
 	"github.com/injoyai/ios/module/common"
 )
 
-type (
-	Option func(c *Client)
-)
-
 func Run(f ios.DialFunc, op ...Option) error {
 	c, err := Dial(f, op...)
 	if err != nil {
@@ -25,29 +21,34 @@ func Run(f ios.DialFunc, op ...Option) error {
 }
 
 func Redial(f ios.DialFunc, op ...Option) *Client {
-	return RedialWithContext(context.Background(), f, op...)
+	return RedialContext(context.Background(), f, op...)
 }
 
-func RedialWithContext(ctx context.Context, dial ios.DialFunc, op ...Option) *Client {
-	c := New()
+func RedialContext(ctx context.Context, dial ios.DialFunc, op ...Option) *Client {
+	c := New(dial, op...)
 	c.SetRedial()
-	_ = c.MustDial(ctx, dial, op...)
+	_ = c.Dial(ctx)
 	return c
 }
 
 func Dial(f ios.DialFunc, op ...Option) (*Client, error) {
-	return DialWithContext(context.Background(), f, op...)
+	return DialContext(context.Background(), f, op...)
 }
 
-func DialWithContext(ctx context.Context, dial ios.DialFunc, op ...Option) (*Client, error) {
-	c := New()
-	err := c.Dial(ctx, dial, op...)
+func DialContext(ctx context.Context, dial ios.DialFunc, op ...Option) (*Client, error) {
+	c := New(dial, op...)
+	err := c.Dial(ctx)
 	return c, err
 }
 
-func New() *Client {
+func New(dial ios.DialFunc, op ...Option) *Client {
 	c := &Client{}
 	c.Reset()
+	c.SetDial(dial)
+	//这里直接执行Option,
+	//如果想Write,则使用OnConnect进行处理,
+	//否则设置重试等Option会无效
+	c.SetOption(op...)
 	return c
 }
 
@@ -146,6 +147,7 @@ func (this *Client) Reset() {
 	this.Runner2.SetFunc(this.run)
 }
 
+// Reader 获取原始Reader/或者*ios.BufferReader
 func (this *Client) Reader() ios.Reader {
 	return this.r
 }
@@ -166,17 +168,7 @@ func (this *Client) initAllReader() {
 	this.AllReader = ios.NewAllReader(this.r, f)
 }
 
-//// 释放单次生命周期的内存
-//func (this *Client) free() {
-//	//释放Reader的内存
-//	switch v := this.r.(type) {
-//	case *ios.BufferReader:
-//		this.r = nil
-//		bufferPool.Put(v)
-//	}
-//}
-
-func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Option) {
+func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 	this.key = k
 
 	//设置缓存区4KB,针对io.Reader有效,能大幅度提升性能
@@ -198,7 +190,7 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 	this.initAllReader()
 	this.MoreWriter = ios.NewMoreWriter(r)
 	this.Info.DialTime = time.Now()
-	this.options = op
+	//this.options = op
 
 	//Runner现在作为全局的生命周期,Closer控制单次的生命周期
 	//this.Runner = safe.NewRunnerWithContext(this.Ctx, this.run)
@@ -247,28 +239,38 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser, op ...Op
 	}
 
 	//执行选项
-	this.SetOption(op...)
+	this.SetOption(this.options...)
+	//this.SetOption(op...)
 
 }
 
-func (this *Client) MustDial(ctx context.Context, dial ios.DialFunc, op ...Option) error {
-	return this._dial(ctx, true, dial, op...)
-}
-
-func (this *Client) Dial(ctx context.Context, dial ios.DialFunc, op ...Option) error {
-	return this._dial(ctx, false, dial, op...)
-}
-
-func (this *Client) _dial(ctx context.Context, must bool, dial ios.DialFunc, op ...Option) (err error) {
+// SetDial 设置连接函数,可以忽略掉手动Dial
+func (this *Client) SetDial(dial ios.DialFunc) {
 	this.dial = dial
-	r, k, err := this.doDial(ctx, must)
+}
+
+func (this *Client) MustDial(ctx context.Context) error {
+	return this.Dial(ctx)
+}
+
+//func (this *Client) Dial2(ctx context.Context, dial ios.DialFunc) error {
+//	return this._dial(ctx, false, dial)
+//}
+
+//func (this *Client) Dial(ctx context.Context) error {
+//	return this._dial(ctx)
+//}
+
+func (this *Client) Dial(ctx context.Context) (err error) {
+
+	r, k, err := this.doDial(ctx)
 	if err != nil {
 		this.Closer.Reset()
 		this.Closer.CloseWithErr(err)
 		return err
 	}
 
-	this.SetReadWriteCloser(k, r, op...)
+	this.SetReadWriteCloser(k, r)
 
 	//打印日志,由op选项控制是否输出和日志等级
 	this.Logger.Infof("[%s] 连接服务成功...\n", this.GetKey())
@@ -295,11 +297,11 @@ func (this *Client) _dial(ctx context.Context, must bool, dial ios.DialFunc, op 
 	return nil
 }
 
-func (this *Client) doDial(ctx context.Context, must bool) (ios.ReadWriteCloser, string, error) {
+func (this *Client) doDial(ctx context.Context) (ios.ReadWriteCloser, string, error) {
 	if this.dial == nil {
 		return nil, "", errors.New("handler is nil")
 	}
-	if !must {
+	if !this.redial {
 		return this.dial(ctx)
 	}
 	//this.Logger.Infof("等待连接服务...\n")
@@ -312,7 +314,7 @@ func (this *Client) doDial(ctx context.Context, must bool) (ios.ReadWriteCloser,
 	return defaultReconnect(ctx, this, this.dial)
 }
 
-// SetReadTimeout 设置读取超时,即距离上次读取数据时间超过该设置值,则会关闭连接,0表示不超时
+// SetReadTimeout 设置读取超时,即距离上次读取数据时间超过该设置值,则会关闭连接,0表示不超时,todo 逻辑整理的更清晰点
 func (this *Client) SetReadTimeout(ctx context.Context, timeout time.Duration) *Client {
 	this.timeout.SetFunc(func(ctx context.Context) error {
 		if timeout <= 0 {
@@ -340,7 +342,7 @@ func (this *Client) SetReadTimeout(ctx context.Context, timeout time.Duration) *
 	return this
 }
 
-// SetOption 设置选项
+// SetOption 设置选项,立马执行
 func (this *Client) SetOption(op ...Option) *Client {
 	for _, fn := range op {
 		fn(this)
@@ -421,7 +423,18 @@ func (this *Client) Done() <-chan struct{} {
 }
 
 // run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?
-func (this *Client) run(ctx context.Context) (err error) {
+func (this *Client) run(ctx context.Context) error {
+	//判断是否建立了连接,未建立则尝试建立
+	if this.r == nil {
+		if err := this.Dial(ctx); err != nil {
+			return err
+		}
+	}
+	return this._run(ctx)
+}
+
+// _run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?
+func (this *Client) _run(ctx context.Context) (err error) {
 
 	//校验事件函数
 	if this.Event == nil {
@@ -443,15 +456,16 @@ func (this *Client) run(ctx context.Context) (err error) {
 
 		case <-this.Closer.Done():
 			//一个连接的生命周期结束
-			if this.redial {
-				//设置了重连,并且已经运行,其他都关闭
-				//这里连接的错误只会出现在上下文关闭的情况
-				if err := this.MustDial(ctx, this.dial, this.options...); err != nil {
-					return err
-				}
-				return this.run(ctx)
+			if !this.redial {
+				//如果未设置重试,则直接返回错误
+				return this.Closer.Err()
 			}
-			return this.Closer.Err()
+			//设置了重连,并且已经运行,其他都关闭
+			//这里连接的错误只会出现在上下文关闭的情况
+			if err := this.Dial(ctx); err != nil {
+				return err
+			}
+			return this._run(ctx)
 
 		case <-this.redialSign:
 
@@ -459,7 +473,7 @@ func (this *Client) run(ctx context.Context) (err error) {
 			this.CloseWithErr(errors.New("手动重连"))
 			//尝试建立连接,不需要重试,连接失败后会进行下一个循环
 			//下个循环会走正常的断开是否重连逻辑,设置重连会一直重试,否则退出执行
-			this.Dial(ctx, this.dial, this.options...)
+			this.Dial(ctx)
 
 		default:
 

@@ -93,11 +93,14 @@ func Test(n int) {
 		<-dial.RedialTCP("127.0.0.1:20145", func(c *client.Client) {
 			c.Logger.Debug(false)
 			c.Logger.SetLevel(common.LevelInfo)
-			data := make([]byte, length)
-			start = time.Now()
-			_, err := c.Write(data)
-			logs.PrintErr(err)
-			logs.Debugf("[发送]传输耗时: %0.1fMB/s\n", float64(length/(1<<20))/time.Now().Sub(start).Seconds())
+			c.OnConnected = func(c *client.Client) error {
+				data := make([]byte, length)
+				start = time.Now()
+				_, err := c.Write(data)
+				logs.PrintErr(err)
+				logs.Debugf("[发送]传输耗时: %0.1fMB/s\n", float64(length/(1<<20))/time.Now().Sub(start).Seconds())
+				return nil
+			}
 			c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
 				logs.Debug(msg)
 			}
