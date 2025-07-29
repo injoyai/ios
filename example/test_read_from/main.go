@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/client/dial"
 	"github.com/injoyai/ios/client/frame"
+	"github.com/injoyai/ios/client/redial"
 	"github.com/injoyai/ios/server"
 	"github.com/injoyai/ios/server/listen"
 	"github.com/injoyai/logs"
@@ -25,7 +25,7 @@ func main() {
 		})
 	})
 
-	dial.RedialTCP("127.0.0.1:8080", func(c *client.Client) {
+	redial.TCP("127.0.0.1:8080", func(c *client.Client) {
 		logs.Debug(c.Event.OnReadFrom)
 		c.Event.OnWriteWith = frame.Default.WriteWith
 		c.Event.OnReadFrom = func(r io.Reader) ([]byte, error) {

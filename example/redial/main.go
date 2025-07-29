@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/client/dial"
+	"github.com/injoyai/ios/client/redial"
 	"github.com/injoyai/ios/server"
 	"github.com/injoyai/ios/server/listen"
 	"github.com/injoyai/logs"
@@ -30,7 +30,7 @@ func main() {
 		})
 	}()
 
-	c := dial.RedialTCP("127.0.0.1:10086")
+	c := redial.TCP("127.0.0.1:10086")
 	go func() {
 		logs.Err(c.Run(context.Background()))
 	}()

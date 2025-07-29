@@ -4,13 +4,13 @@ import (
 	"context"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/client/dial"
+	"github.com/injoyai/ios/client/redial"
 	"github.com/injoyai/ios/module/tcp"
 	"time"
 )
 
 func main() {
-	dial.RedialTCP(":10086", func(c *client.Client) {
+	redial.TCP(":10086", func(c *client.Client) {
 		c.GoTimerWriter(time.Second*3, func(w ios.MoreWriter) error {
 			return w.WriteAny(time.Now().Format("2006-01-02 15:04:05"))
 		})

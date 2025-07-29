@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/client/dial"
+	"github.com/injoyai/ios/client/redial"
 	"github.com/injoyai/ios/module/common"
 	"github.com/injoyai/ios/server"
 	"github.com/injoyai/ios/server/listen"
@@ -90,7 +90,7 @@ func Test(n int) {
 
 		})
 		<-time.After(time.Second)
-		<-dial.RedialTCP("127.0.0.1:20145", func(c *client.Client) {
+		<-redial.TCP("127.0.0.1:20145", func(c *client.Client) {
 			c.Logger.Debug(false)
 			c.Logger.SetLevel(common.LevelInfo)
 			c.OnConnected = func(c *client.Client) error {
