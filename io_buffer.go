@@ -13,8 +13,8 @@ func NewBufferReader(r io.Reader, buf []byte) *BufferReader {
 		buf = make([]byte, DefaultBufferSize)
 	}
 	return &BufferReader{
-		r:   r,
-		buf: buf,
+		Reader: r,
+		buf:    buf,
 	}
 }
 
@@ -24,8 +24,8 @@ BufferReader
 这个能自定义buf,方便内存复用
 */
 type BufferReader struct {
-	// reader provided by the client
-	r io.Reader
+	// 原始Reader,注意使用安全
+	io.Reader
 
 	//用来缓存读取到的数据,方便下次使用
 	//例如MReader,一次读取100字节,但是用户只取走40字节,剩下60字节缓存用于下次
@@ -45,7 +45,7 @@ func (this *BufferReader) Len() int {
 }
 
 func (this *BufferReader) Reset(r io.Reader) {
-	this.r = r
+	this.Reader = r
 	this.i = 0
 	this.j = 0
 }
@@ -54,7 +54,7 @@ func (this *BufferReader) Read(p []byte) (int, error) {
 
 	if this.j <= this.i {
 		//从底层IO读取数据到缓存
-		n, err := this.r.Read(this.buf)
+		n, err := this.Reader.Read(this.buf)
 		if err != nil {
 			return 0, err
 		}

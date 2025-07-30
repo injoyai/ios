@@ -147,9 +147,16 @@ func (this *Client) Reset() {
 	this.Runner2.SetFunc(this.run)
 }
 
-// Reader 获取原始Reader/或者*ios.BufferReader
-func (this *Client) Reader() ios.Reader {
-	return this.r
+// Origin 获取原始连接,
+// 尽量不要直接进行读取,
+// 因为内部封装了一层buffer,可能会造成数据混乱
+func (this *Client) Origin() ios.Reader {
+	switch v := this.r.(type) {
+	case *ios.BufferReader:
+		return v.Reader
+	default:
+		return this.r
+	}
 }
 
 // initAllReader 初始化AllReader
@@ -177,7 +184,7 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 	//所以固定了size为4kb,方便内存的复用,减少(频繁重连)内存泄漏情况
 	switch v := r.(type) {
 	case io.Reader:
-		buf := bufferReadePool.Get()
+		buf := bufferReadePool.Get() //.(*ios.BufferReader)
 		buf.Reset(v)
 		this.r = buf
 	default:
@@ -249,18 +256,7 @@ func (this *Client) SetDial(dial ios.DialFunc) {
 	this.dial = dial
 }
 
-func (this *Client) MustDial(ctx context.Context) error {
-	return this.Dial(ctx)
-}
-
-//func (this *Client) Dial2(ctx context.Context, dial ios.DialFunc) error {
-//	return this._dial(ctx, false, dial)
-//}
-
-//func (this *Client) Dial(ctx context.Context) error {
-//	return this._dial(ctx)
-//}
-
+// Dial 建立连接
 func (this *Client) Dial(ctx context.Context) (err error) {
 
 	r, k, err := this.doDial(ctx)
