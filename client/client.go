@@ -177,7 +177,7 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 	//所以固定了size为4kb,方便内存的复用,减少(频繁重连)内存泄漏情况
 	switch v := r.(type) {
 	case io.Reader:
-		buf := bufferReadePool.Get().(*ios.BufferReader)
+		buf := bufferReadePool.Get()
 		buf.Reset(v)
 		this.r = buf
 	default:
