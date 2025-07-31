@@ -22,14 +22,17 @@ func main() {
 		func(c *client.Client) {
 			c.Logger.Debug()                      //开启打印日志
 			c.Logger.WithUTF8()                   //打印日志编码ASCII
-			c.Event.OnReadFrom = ios.NewRead4KB() //设置读取方式,一次读取全部
+			c.Event.OnReadFrom = ios.NewRead4KB() //设置读取方式,一次读取4KB
 			c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
 				// todo 业务逻辑,处理读取到的数据
 			}
-			c.GoTimerWriter(time.Minute, func(w ios.MoreWriter) error {
-				_, err := w.WriteString("心跳") //定时发送心跳
-				return err
-			})
+			c.Event.OnConnected = func(c *client.Client) error {
+				c.GoTimerWriter(time.Minute, func(w ios.MoreWriter) error {
+					_, err := w.WriteString("心跳") //定时发送心跳
+					return err
+				})
+                return nil
+            }
 		}, 
     )
 }
