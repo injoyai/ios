@@ -108,7 +108,7 @@ type Client struct {
 	//向这个通道发送一个信号,则客户端会进行断开重连
 	redialSign chan struct{}
 
-	//全局已连接信号,仅在连接成功的时候会向这个通道发送10个信号,
+	//全局已连接信号,仅在连接成功的时候会向这个通道发送20个信号,
 	//便于一些逻辑的判断,如果改成单个生命周期的监听,会改变底层指针,不适用
 	dialedSign chan struct{}
 
@@ -247,17 +247,16 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 
 	//执行选项
 	this.SetOption(this.options...)
-	//this.SetOption(op...)
 
 }
 
-// SetDial 设置连接函数,可以忽略掉手动Dial
+// SetDial 设置连接函数
 func (this *Client) SetDial(dial ios.DialFunc) {
 	this.dial = dial
 }
 
 // Dial 建立连接
-func (this *Client) Dial(ctx context.Context) (err error) {
+func (this *Client) Dial(ctx context.Context) error {
 
 	r, k, err := this.doDial(ctx)
 	if err != nil {
@@ -280,9 +279,9 @@ func (this *Client) Dial(ctx context.Context) (err error) {
 	}
 
 	//增加连接成功的信号,方便一些逻辑判断
-	//当连接成功的时候会发送信号通道(防止代码错误最多10个),则监听能收到连接成功的信号
+	//当连接成功的时候会发送信号通道(防止代码错误最多20个),则监听能收到连接成功的信号
 	//当连接关闭的时候,需要重新声明信号,方便下次阻塞
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 20; i++ {
 		select {
 		case this.dialedSign <- struct{}{}:
 		default:
@@ -295,7 +294,7 @@ func (this *Client) Dial(ctx context.Context) (err error) {
 
 func (this *Client) doDial(ctx context.Context) (ios.ReadWriteCloser, string, error) {
 	if this.dial == nil {
-		return nil, "", errors.New("handler is nil")
+		return nil, "", errors.New("dial function is nil")
 	}
 	if !this.redial {
 		return this.dial(ctx)
@@ -378,14 +377,28 @@ func (this *Client) Timer(t time.Duration, f func(c *Client)) {
 	}
 }
 
+// dealErr 自定义错误信息,例如把英文信息改中文
+func (this *Client) dealErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	if this.Event != nil && this.Event.OnDealErr != nil {
+		return this.Event.OnDealErr(this, err)
+	}
+	return err
+}
+
 // GoTimerWriter 定时写入,容易忘记使用协程,然后阻塞,索性直接用协程
 func (this *Client) GoTimerWriter(t time.Duration, f func(w ios.MoreWriter) error) {
 	go this.Timer(t, func(c *Client) {
-		err := f(c)
-		if err != nil && this.Event != nil && this.Event.OnDealErr != nil {
-			err = this.Event.OnDealErr(c, err)
+		select {
+		case <-c.Closer.Done():
+			return
+		case <-c.Dialed():
+			err := f(c)
+			err = this.dealErr(err)
+			c.CloseWithErr(err)
 		}
-		c.CloseWithErr(err)
 	})
 }
 
@@ -407,18 +420,18 @@ func (this *Client) Redial() {
 	this.redialSign <- struct{}{}
 }
 
-// Dialed 连接成功的信号,每次连接成功都会释放信号(最多10个)
+// Dialed 连接成功的信号,每次连接成功都会释放信号(最多20个)
 // 需要判断下closer是否关闭,才能保证逻辑更有效
 func (this *Client) Dialed() <-chan struct{} {
 	return this.dialedSign
 }
 
-// Done 这个是客户端生命周期结束的关闭信号
+// Done 这个是客户端生命周期结束的关闭信号,显示申明下,避免Done冲突
 func (this *Client) Done() <-chan struct{} {
 	return this.Runner2.Done()
 }
 
-// run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?
+// run 运行读取数据操作,如果设置了重试,则会自动重连
 func (this *Client) run(ctx context.Context) error {
 	//判断是否建立了连接,未建立则尝试建立
 	if this.r == nil {
@@ -447,7 +460,7 @@ func (this *Client) _run(ctx context.Context) (err error) {
 		select {
 
 		case <-ctx.Done():
-			//这个ctx不是Client的ctx,而是Runner的ctx属于Client的ctx的子级
+			//上下文关闭
 			return ctx.Err()
 
 		case <-this.Closer.Done():
@@ -480,24 +493,28 @@ func (this *Client) _run(ctx context.Context) (err error) {
 		//如果是Reader,则数据还处于粘包状态,需要调用时间OnReadBuffer,来进行读取
 		ack, err := this.ReadAck()
 		if err != nil {
-			if this.Event.OnDealErr != nil {
-				err = this.Event.OnDealErr(this, err)
-			}
+			//自定义错误信息,例如把英文信息改中文
+			err = this.dealErr(err)
 			this.CloseWithErr(err)
 			//交给closer进行处理接下来的逻辑,固这里不使用return
 			//例如重新连接等操作,这样只用写一个地方,简化代码
 			continue
 		}
+
+		//数据读取成功,更新时间等信息
 		this.Info.ReadTime = time.Now()
 		this.Info.ReadCount++
 		this.Info.ReadBytes += len(ack.Payload())
 
 		//处理数据,使用事件OnDealMessage处理数据,
-		//如果未实现,则不处理数据,则不会确认消息
+		//如果未实现,则不处理数据,并确认消息
 		this.Logger.Readln("["+this.GetKey()+"] ", ack.Payload())
 		if this.Event.OnDealMessage != nil {
 			this.Event.OnDealMessage(this, ack)
+			continue
 		}
+		//未设置处理事件,则直接确认
+		ack.Ack()
 
 	}
 

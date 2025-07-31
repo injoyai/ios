@@ -1,16 +1,11 @@
 package client
 
-import (
-	"github.com/injoyai/ios"
-)
+import "github.com/injoyai/ios"
 
 var (
 	bufferReadePool = NewPool(1000, func() *ios.BufferReader {
 		return ios.NewBufferReader(nil, make([]byte, ios.DefaultBufferSize))
 	})
-	//bufferReadePool = sync.Pool{New: func() any {
-	//	return ios.NewBufferReader(nil, make([]byte, ios.DefaultBufferSize))
-	//}}
 )
 
 func NewPool[T any](max int, new func() *T) *Pool[T] {
