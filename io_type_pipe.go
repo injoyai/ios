@@ -30,14 +30,14 @@ func (this *Piper) Close() error {
 
 func (this *Piper) IO() (IO, IO) {
 	i1 := &IOer{
-		AllRead: &AllRead{
+		MoreRead: &MoreRead{
 			Reader: this.Pipe1,
 		},
 		Writer: this.Pipe2,
 		Closer: this,
 	}
 	i2 := &IOer{
-		AllRead: &AllRead{
+		MoreRead: &MoreRead{
 			Reader: this.Pipe2,
 		},
 		Writer: this.Pipe1,

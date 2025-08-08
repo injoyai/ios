@@ -4,14 +4,14 @@ import (
 	"io"
 )
 
-func NewAllReader(r Reader, f FReader) *AllRead {
-	x := &AllRead{}
+func NewAllReader(r Reader, f FReader) *MoreRead {
+	x := &MoreRead{}
 	x.Reset(r, f)
 	return x
 }
 
-// AllRead ios.Reader转io.Reader
-type AllRead struct {
+// MoreRead ios.Reader转io.Reader
+type MoreRead struct {
 	//只能是[Reader|MReader|AReader]类型
 	Reader
 
@@ -25,8 +25,8 @@ type AllRead struct {
 	fromReader FReader
 }
 
-func (this *AllRead) Reset(r Reader, f FReader) {
-	if v, ok := r.(*AllRead); ok {
+func (this *MoreRead) Reset(r Reader, f FReader) {
+	if v, ok := r.(*MoreRead); ok {
 		r = v.Reader
 	}
 	switch v := this.Reader.(type) {
@@ -46,7 +46,7 @@ func (this *AllRead) Reset(r Reader, f FReader) {
 	this.fromReader = f
 }
 
-func (this *AllRead) Read(p []byte) (n int, err error) {
+func (this *MoreRead) Read(p []byte) (n int, err error) {
 	switch r := this.Reader.(type) {
 	case MReader:
 		if len(this.cache) == 0 {
@@ -85,7 +85,7 @@ func (this *AllRead) Read(p []byte) (n int, err error) {
 
 }
 
-func (this *AllRead) ReadMessage() (bs []byte, err error) {
+func (this *MoreRead) ReadMessage() (bs []byte, err error) {
 	switch r := this.Reader.(type) {
 	case MReader:
 		return r.ReadMessage()
@@ -100,7 +100,7 @@ func (this *AllRead) ReadMessage() (bs []byte, err error) {
 	}
 }
 
-func (this *AllRead) ReadAck() (Acker, error) {
+func (this *MoreRead) ReadAck() (Acker, error) {
 	switch r := this.Reader.(type) {
 	case MReader:
 		bs, err := r.ReadMessage()
@@ -122,7 +122,7 @@ func (this *AllRead) ReadAck() (Acker, error) {
 }
 
 type IOer struct {
-	*AllRead
+	*MoreRead
 	io.Writer
 	io.Closer
 }
