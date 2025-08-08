@@ -38,7 +38,10 @@ func RunSSH(cfg *ssh.Config, op ...client.Option) error {
 }
 
 func Websocket(addr string, op ...client.Option) *client.Client {
-	return client.Redial(websocket.NewDial(addr), op...)
+	return client.Redial(websocket.NewDial(addr), func(c *client.Client) {
+		c.OnWrite = client.NewWriteSafe()
+		c.SetOption(op...)
+	})
 }
 
 func RunWebsocket(addr string, op ...client.Option) error {

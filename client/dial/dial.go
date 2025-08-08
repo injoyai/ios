@@ -52,11 +52,17 @@ func RunSSH(cfg *ssh.Config, op ...client.Option) error {
 }
 
 func Websocket(addr string, op ...client.Option) (*client.Client, error) {
-	return client.Dial(websocket.NewDial(addr), op...)
+	return client.Dial(websocket.NewDial(addr), func(c *client.Client) {
+		c.OnWrite = client.NewWriteSafe()
+		c.SetOption(op...)
+	})
 }
 
 func RunWebsocket(addr string, op ...client.Option) error {
-	return Run(websocket.NewDial(addr), op...)
+	return Run(websocket.NewDial(addr), func(c *client.Client) {
+		c.OnWrite = client.NewWriteSafe()
+		c.SetOption(op...)
+	})
 }
 
 func Serial(cfg *serial.Config, op ...client.Option) (*client.Client, error) {
