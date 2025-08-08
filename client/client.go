@@ -59,8 +59,10 @@ Client
 type Client struct {
 
 	//IO实例,原始数据
-	//目前支持ios.AReader,ios.MReader,io.Reader
-	r ios.Reader
+	r ios.ReadWriteCloser
+
+	//带缓存的reader,目前支持ios.AReader,ios.MReader,io.Reader
+	buf ios.Reader
 
 	//全局自定义标识,表明客户端的身份
 	//默认使用的是客户端的IP:PORT
@@ -123,6 +125,7 @@ type Client struct {
 func (this *Client) Reset() {
 	this.key = ""
 	this.r = nil
+	this.buf = nil
 	this.AllReader = nil
 	this.MoreWriter = nil
 	this.Logger = common.NewLogger()
@@ -150,13 +153,8 @@ func (this *Client) Reset() {
 // Origin 获取原始连接,
 // 尽量不要直接进行读取,
 // 因为内部封装了一层buffer,可能会造成数据混乱
-func (this *Client) Origin() ios.Reader {
-	switch v := this.r.(type) {
-	case *ios.BufferReader:
-		return v.Reader
-	default:
-		return this.r
-	}
+func (this *Client) Origin() ios.ReadWriteCloser {
+	return this.r
 }
 
 // initAllReader 初始化AllReader
@@ -166,17 +164,18 @@ func (this *Client) initAllReader() {
 		f = ios.FReadFunc(this.Event.OnReadFrom)
 	}
 	switch v := this.AllReader.(type) {
-	case *ios.AllRead:
+	case *ios.MoreRead:
 		if v != nil {
-			v.Reset(this.r, f)
+			v.Reset(this.buf, f)
 			return
 		}
 	}
-	this.AllReader = ios.NewAllReader(this.r, f)
+	this.AllReader = ios.NewAllReader(this.buf, f)
 }
 
 func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 	this.key = k
+	this.r = r
 
 	//设置缓存区4KB,针对io.Reader有效,能大幅度提升性能
 	//这个是缓存区,和实际读取的buffer不一样,固有2个内存的申明,
@@ -184,23 +183,45 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 	//所以固定了size为4kb,方便内存的复用,减少(频繁重连)内存泄漏情况
 	switch v := r.(type) {
 	case io.Reader:
-		buf := bufferReadePool.Get() //.(*ios.BufferReader)
+		buf := bufferReadePool.Get()
 		buf.Reset(v)
-		this.r = buf
+		this.buf = buf
 	default:
-		this.r = r
+		this.buf = r
 	}
 
 	//需要先初始化，方便OnConnect的数据读取,run的时候还会声明一次最新(用户设置过)的读取函数
 	//转换为FreeFromReader,附带内存释放的FromReader
 	//Event中的内存由用户自行控制,如果未配置(nil),则由全局pool控制生成
 	this.initAllReader()
-	this.MoreWriter = ios.NewMoreWriter(r)
+	moreWrite := ios.NewMoreWrite(r)
+	this.MoreWriter = moreWrite
 	this.Info.DialTime = time.Now()
 	//this.options = op
 
 	//Runner现在作为全局的生命周期,Closer控制单次的生命周期
 	//this.Runner = safe.NewRunnerWithContext(this.Ctx, this.run)
+
+	//写入数据事件
+	moreWrite.Option = []ios.WriteOption{
+		func(p []byte) (_ []byte, err error) {
+			this.Logger.Writeln("["+this.GetKey()+"] ", p)
+			if this.Event.OnWriteWith != nil {
+				p, err = this.Event.OnWriteWith(p)
+			}
+			this.Info.WriteTime = time.Now()
+			this.Info.WriteCount++
+			this.Info.WriteBytes += len(p)
+			return p, err
+		},
+	}
+	//写入事件
+	moreWrite.OnWrite = func(f func() error) error {
+		if this.Event != nil && this.Event.OnWrite != nil {
+			return this.Event.OnWrite(f)
+		}
+		return f()
+	}
 
 	//重置Closer,非重新申明,节约内存
 	this.Closer.Reset()
@@ -220,30 +241,16 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 
 		//释放内存,读取数据的时候申明了内存,需要释放下,防止内存泄漏
 		//释放Reader的内存
-		switch v := this.r.(type) {
+		switch v := this.buf.(type) {
 		case *ios.BufferReader:
 			if v != nil {
 				bufferReadePool.Put(v)
 			}
-			this.r = nil
+			this.buf = nil
 		}
 
 		return nil
 	})
-
-	//写入事件
-	this.MoreWriter.(*ios.MoreWrite).Option = []ios.WriteOption{
-		func(p []byte) (_ []byte, err error) {
-			this.Logger.Writeln("["+this.GetKey()+"] ", p)
-			if this.Event.OnWriteWith != nil {
-				p, err = this.Event.OnWriteWith(p)
-			}
-			this.Info.WriteTime = time.Now()
-			this.Info.WriteCount++
-			this.Info.WriteBytes += len(p)
-			return p, err
-		},
-	}
 
 	//执行选项
 	this.SetOption(this.options...)
@@ -394,7 +401,7 @@ func (this *Client) GoTimerWriter(t time.Duration, f func(w ios.MoreWriter) erro
 		select {
 		case <-c.Closer.Done():
 			return
-		case <-c.Dialed():
+		default:
 			err := f(c)
 			err = this.dealErr(err)
 			c.CloseWithErr(err)
