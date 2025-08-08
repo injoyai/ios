@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/injoyai/ios"
 	"io"
+	"time"
 )
 
 type Option func(c *Client)
@@ -60,6 +61,20 @@ func WithReadFrom(f func(r io.Reader) ([]byte, error)) Option {
 func WithWriteWith(f func(bs []byte) ([]byte, error)) Option {
 	return func(c *Client) {
 		c.Event.OnWriteWith = f
+	}
+}
+
+// WithWriteSafe 写入数据并发安全
+func WithWriteSafe() Option {
+	return func(c *Client) {
+		c.OnWrite = NewWriteSafe()
+	}
+}
+
+// WithWriteRetry 写入错误重试
+func WithWriteRetry(retry int, interval ...time.Duration) Option {
+	return func(c *Client) {
+		c.OnWrite = NewWriteRetry(retry, interval...)
 	}
 }
 
