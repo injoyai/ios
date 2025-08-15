@@ -100,11 +100,9 @@ loop:
 
 			 */
 
-			if this.Checker != nil {
-				if !this.Checker.Check(result) {
-					//表示是无效数据,重新开始读取
-					continue loop
-				}
+			if this.Checker != nil && !this.Checker.Check(result) {
+				//表示是无效数据,重新开始读取
+				continue loop
 			}
 
 			return result, nil
