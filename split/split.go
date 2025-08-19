@@ -6,15 +6,17 @@ import (
 	"github.com/injoyai/conv"
 	"github.com/injoyai/ios"
 	"io"
+	"regexp"
 )
 
 // Split 通用分包配置,适用99%的协议
 type Split struct {
-	Prefix                        //匹配帧头
-	Suffix                        //匹配帧尾
-	Length                        //匹配长度
-	Checker                       //数据校验,crc,sum等
-	OnErr   func(err error) error //处理错误信息,可以重置成nil,例如超时
+	Prefixes                       //匹配帧头
+	Suffix                         //匹配帧尾
+	Length                         //匹配长度
+	Regular                        //匹配正则
+	Checker                        //数据校验,crc,sum等
+	OnErr    func(err error) error //处理错误信息,可以重置成nil,例如超时
 }
 
 func (this *Split) ReadFrom(r io.Reader) (result []byte, err error) {
@@ -41,7 +43,7 @@ loop:
 			 */
 
 			//校验数据是否满足帧头
-			preMatch, invalid, err := this.Prefix.Check(result)
+			preMatch, invalid, err := this.Prefixes.Check(result)
 			if err != nil {
 				return result, err
 			}
@@ -100,6 +102,25 @@ loop:
 
 			 */
 
+			regMatch, invalid, err := this.Regular.Check(result)
+			if err != nil {
+				return result, err
+			}
+
+			if invalid {
+				//表示是无效数据,重新开始读取
+				continue loop
+			}
+
+			if !regMatch {
+				//暂时还不满足所有要求,等待读取一字节继续判断
+				continue
+			}
+
+			/*
+
+			 */
+
 			if this.Checker != nil && !this.Checker.Check(result) {
 				//表示是无效数据,重新开始读取
 				continue loop
@@ -109,6 +130,26 @@ loop:
 
 		}
 	}
+}
+
+type Prefixes []Prefix
+
+func (this Prefixes) Check(bs []byte) (match bool, invalid bool, err error) {
+	invalid = len(this) > 0
+	_invalid := false
+	for _, prefix := range this {
+		match, _invalid, err = prefix.Check(bs)
+		if err != nil {
+			return
+		}
+		if !_invalid {
+			invalid = false
+		}
+		if match {
+			return
+		}
+	}
+	return
 }
 
 type Prefix []byte
@@ -128,6 +169,17 @@ type Suffix []byte
 
 func (this Suffix) Check(bs []byte) (match bool, invalid bool, err error) {
 	match = bytes.HasSuffix(bs, this)
+	return
+}
+
+type Regular string
+
+func (this Regular) Check(bs []byte) (match bool, invalid bool, err error) {
+	if len(this) == 0 {
+		match = true
+		return
+	}
+	match, err = regexp.Match(string(this), bs)
 	return
 }
 

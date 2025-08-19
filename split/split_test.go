@@ -10,8 +10,8 @@ import (
 func TestSplit_ReadFrom(t *testing.T) {
 	{
 		fn := &Split{
-			Prefix: []byte{0x03},
-			Suffix: nil,
+			Prefixes: []Prefix{{0x03}},
+			Suffix:   nil,
 			Length: Length{
 				LittleEndian: false,
 				Start:        1,
