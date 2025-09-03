@@ -10,6 +10,7 @@ import (
 	"github.com/injoyai/ios/module/serial"
 	"github.com/injoyai/ios/module/ssh"
 	"github.com/injoyai/ios/module/tcp"
+	"github.com/injoyai/ios/module/unix"
 	"github.com/injoyai/ios/module/websocket"
 )
 
@@ -27,6 +28,14 @@ func TCP(addr string, op ...client.Option) *client.Client {
 
 func RunTCP(addr string, op ...client.Option) error {
 	return TCP(addr, op...).Run(context.Background())
+}
+
+func Unix(addr string, op ...client.Option) *client.Client {
+	return client.Redial(unix.NewDial(addr), op...)
+}
+
+func RunUnix(addr string, op ...client.Option) error {
+	return Unix(addr, op...).Run(context.Background())
 }
 
 func SSH(cfg *ssh.Config, op ...client.Option) *client.Client {

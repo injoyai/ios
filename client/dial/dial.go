@@ -10,6 +10,7 @@ import (
 	"github.com/injoyai/ios/module/serial"
 	"github.com/injoyai/ios/module/ssh"
 	"github.com/injoyai/ios/module/tcp"
+	"github.com/injoyai/ios/module/unix"
 	"github.com/injoyai/ios/module/websocket"
 )
 
@@ -20,6 +21,7 @@ var (
 	WithSerial    = serial.NewDial
 	WithSSH       = ssh.NewDial
 	WithTCP       = tcp.NewDial
+	WithUnix      = unix.NewDial
 	WithWebsocket = websocket.NewDial
 )
 
@@ -41,6 +43,14 @@ func TCP(addr string, op ...client.Option) (*client.Client, error) {
 
 func RunTCP(addr string, op ...client.Option) error {
 	return Run(tcp.NewDial(addr), op...)
+}
+
+func Unix(addr string, op ...client.Option) (*client.Client, error) {
+	return client.Dial(unix.NewDial(addr), op...)
+}
+
+func RunUnix(addr string, op ...client.Option) error {
+	return Run(unix.NewDial(addr), op...)
 }
 
 func SSH(cfg *ssh.Config, op ...client.Option) (*client.Client, error) {

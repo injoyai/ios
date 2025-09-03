@@ -3,6 +3,7 @@ package listen
 import (
 	"github.com/injoyai/ios/module/memory"
 	"github.com/injoyai/ios/module/tcp"
+	"github.com/injoyai/ios/module/unix"
 	"github.com/injoyai/ios/module/websocket"
 	"github.com/injoyai/ios/server"
 )
@@ -13,6 +14,14 @@ func TCP(port int, op ...server.Option) (*server.Server, error) {
 
 func RunTCP(port int, op ...server.Option) error {
 	return server.Run(tcp.NewListen(port), op...)
+}
+
+func Unix(filename string, op ...server.Option) (*server.Server, error) {
+	return server.New(unix.NewListen(filename), op...)
+}
+
+func RunUnix(filename string, op ...server.Option) error {
+	return server.Run(unix.NewListen(filename), op...)
 }
 
 func Memory(key string, op ...server.Option) (*server.Server, error) {
