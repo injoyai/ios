@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"github.com/injoyai/conv"
 	"io"
+	"strings"
 )
 
 var _ MoreWriter = (*MoreWrite)(nil)
@@ -69,6 +70,7 @@ func (this *MoreWrite) WriteBase64(s string) error {
 }
 
 func (this *MoreWrite) WriteHEX(s string) error {
+	s = strings.ReplaceAll(s, " ", "")
 	bs, err := hex.DecodeString(s)
 	if err != nil {
 		return err
