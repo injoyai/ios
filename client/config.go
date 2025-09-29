@@ -16,7 +16,7 @@ type Frame interface {
 
 type Event struct {
 	OnConnected   func(c *Client) error              //连接事件
-	OnReconnect   func(i int) (time.Duration, error) //重连事件
+	OnReconnect   func(i int) (time.Duration, error) //重连事件,i是重连次数,1开始
 	OnDisconnect  func(c *Client, err error)         //断开连接事件
 	OnReadFrom    func(r io.Reader) ([]byte, error)  //读取数据事件,当类型是io.Reader才会触发
 	OnDealMessage func(c *Client, msg ios.Acker)     //处理消息事件
