@@ -265,7 +265,7 @@ func (this *Client) SetDial(dial ios.DialFunc) {
 // Dial 建立连接
 func (this *Client) Dial(ctx context.Context) error {
 
-	r, k, err := this.doDial(ctx)
+	r, k, err := this._dial(ctx)
 	if err != nil {
 		this.Closer.Reset()
 		this.Closer.CloseWithErr(err)
@@ -299,21 +299,42 @@ func (this *Client) Dial(ctx context.Context) error {
 	return nil
 }
 
-func (this *Client) doDial(ctx context.Context) (ios.ReadWriteCloser, string, error) {
+func (this *Client) _dial(ctx context.Context) (ios.ReadWriteCloser, string, error) {
 	if this.dial == nil {
 		return nil, "", errors.New("dial function is nil")
 	}
-	if !this.redial {
-		return this.dial(ctx)
+	//首次连接
+	r, k, err := this.dial(ctx)
+	if err == nil || !this.redial {
+		return r, k, err
 	}
-	//this.Logger.Infof("等待连接服务...\n")
-	//触发重连事件
-	if this.Event != nil && this.Event.OnReconnect != nil {
-		return this.Event.OnReconnect(ctx, this, this.dial)
+
+	var getInterval func(int) (time.Duration, error)
+	switch {
+	case this.Event != nil && this.Event.OnReconnect != nil:
+		getInterval = this.Event.OnReconnect
+	default:
+		getInterval = defaultReconnect
 	}
-	//防止用户设置错了重试,再外层在加上一层退避重试,是否需要? 可能想重试10次就不重试就无法实现了
-	//f := ReconnectWithRetreat(time.Second*2, time.Second*32, 2)
-	return defaultReconnect(ctx, this, this.dial)
+
+	//尝试重连
+	for i := 1; this.redial && err != nil; i++ {
+		t, er := getInterval(i)
+		if er != nil {
+			return nil, "", er
+		}
+		if this.GetKey() != "" {
+			k = this.GetKey()
+		}
+		this.Logger.Errorf("[%s] %v,等待%d秒重试\n", k, common.DealErr(err), t/time.Second)
+		select {
+		case <-ctx.Done():
+			return nil, "", ctx.Err()
+		case <-time.After(t):
+			r, k, err = this.dial(ctx)
+		}
+	}
+	return r, k, err
 }
 
 // SetReadTimeout 设置读取超时,即距离上次读取数据时间超过该设置值,则会关闭连接,0表示不超时,todo 逻辑整理的更清晰点
