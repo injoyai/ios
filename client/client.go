@@ -499,6 +499,7 @@ func (this *Client) _run(ctx context.Context) (err error) {
 			}
 			//设置了重连,并且已经运行,其他都关闭
 			//这里连接的错误只会出现在上下文关闭的情况
+			<-time.After(time.Second) //避免无限制重连
 			if err := this.Dial(ctx); err != nil {
 				return err
 			}
