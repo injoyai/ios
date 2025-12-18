@@ -2,20 +2,25 @@ package mqtt
 
 import (
 	"context"
+	"io"
+	"strings"
+	"time"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/conv"
 	"github.com/injoyai/ios"
-	"io"
-	"strings"
-	"time"
 )
 
 var _ ios.AReadWriteCloser = &Client{}
 
 type (
-	Config  = mqtt.ClientOptions
-	Connect = mqtt.Client
+	Config              = mqtt.ClientOptions
+	Connect             = mqtt.Client
+	Token               = mqtt.Token
+	MessageHandler      = mqtt.MessageHandler
+	ClientOptionsReader = mqtt.ClientOptionsReader
+	ClientOptions       = mqtt.ClientOptions
 )
 
 func NewDial(cfg *Config, subscribe Subscribe, publish Publish) ios.DialFunc {
@@ -140,5 +145,5 @@ func WithBase(cfg *BaseConfig) *mqtt.ClientOptions {
 		SetConnectTimeout(cfg.ConnectTimeout).
 		SetKeepAlive(cfg.KeepAlive).
 		SetAutoReconnect(false). //自动重连
-		SetCleanSession(false)   //重连后恢复session
+		SetCleanSession(false) //重连后恢复session
 }
