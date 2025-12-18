@@ -20,7 +20,6 @@ type (
 	Token               = mqtt.Token
 	MessageHandler      = mqtt.MessageHandler
 	ClientOptionsReader = mqtt.ClientOptionsReader
-	ClientOptions       = mqtt.ClientOptions
 )
 
 func NewDial(cfg *Config, subscribe Subscribe, publish Publish) ios.DialFunc {
