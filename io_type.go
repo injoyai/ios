@@ -127,7 +127,7 @@ type (
 
 // Acker 兼容MQ等需要确认的场景
 type Acker interface {
-	Payload() []byte
+	Bytes() []byte
 	Ack() error
 }
 
@@ -168,7 +168,7 @@ type Ack []byte
 
 func (this Ack) Ack() error { return nil }
 
-func (this Ack) Payload() []byte { return this }
+func (this Ack) Bytes() []byte { return this }
 
 type DialFunc func(ctx context.Context) (ReadWriteCloser, string, error)
 

@@ -1,9 +1,10 @@
 package client
 
 import (
-	"github.com/injoyai/ios"
 	"io"
 	"time"
+
+	"github.com/injoyai/ios"
 )
 
 type Option func(c *Client)
@@ -46,55 +47,55 @@ func WithUTF8() Option {
 // WithDealMessage 处理消息事件
 func WithDealMessage(f func(c *Client, msg ios.Acker)) Option {
 	return func(c *Client) {
-		c.Event.OnDealMessage = f
+		c.OnDealMessage(f)
 	}
 }
 
 // WithReadFrom 读取数据事件
 func WithReadFrom(f func(r io.Reader) ([]byte, error)) Option {
 	return func(c *Client) {
-		c.Event.OnReadFrom = f
+		c.OnReadFrom(f)
 	}
 }
 
 // WithWriteWith 写入数据事件
 func WithWriteWith(f func(bs []byte) ([]byte, error)) Option {
 	return func(c *Client) {
-		c.Event.OnWriteWith = f
+		c.OnWriteWith(f)
 	}
 }
 
 // WithWriteSafe 写入数据并发安全
 func WithWriteSafe() Option {
 	return func(c *Client) {
-		c.OnWrite = NewWriteSafe()
+		c.OnWrite(NewWriteSafe())
 	}
 }
 
 // WithWriteRetry 写入错误重试
 func WithWriteRetry(retry int, interval ...time.Duration) Option {
 	return func(c *Client) {
-		c.OnWrite = NewWriteRetry(retry, interval...)
+		c.OnWrite(NewWriteRetry(retry, interval...))
 	}
 }
 
 // WithFrame 设置Frame
 func WithFrame(f Frame) Option {
 	return func(c *Client) {
-		c.Event.WithFrame(f)
+		c.WithFrame(f)
 	}
 }
 
 // WithConnect 建立连接事件
 func WithConnect(f func(c *Client) error) Option {
 	return func(c *Client) {
-		c.Event.OnConnected = f
+		c.OnConnected(f)
 	}
 }
 
 // WithDisconnect 断开连接事件
 func WithDisconnect(f func(c *Client, err error)) Option {
 	return func(c *Client) {
-		c.Event.OnDisconnect = f
+		c.OnDisconnect(f)
 	}
 }

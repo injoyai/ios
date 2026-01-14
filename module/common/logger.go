@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/hex"
+
 	"github.com/fatih/color"
 	"github.com/injoyai/logs"
 )

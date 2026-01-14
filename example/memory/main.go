@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
+	"time"
+
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/client/dial"
 	"github.com/injoyai/ios/server"
 	"github.com/injoyai/ios/server/listen"
 	"github.com/injoyai/logs"
-	"time"
 )
 
 func main() {
@@ -16,10 +17,10 @@ func main() {
 	go listen.RunMemory("test", func(s *server.Server) {
 		//s.Logger.Debug(false)
 		s.SetClientOption(func(c *client.Client) {
-			c.OnDealMessage = func(c *client.Client, msg ios.Acker) {
-				_, err := c.Write(msg.Payload())
+			c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
+				_, err := c.Write(msg.Bytes())
 				logs.PrintErr(err)
-			}
+			})
 		})
 	})
 

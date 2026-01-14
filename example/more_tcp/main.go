@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
+	"time"
+
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/client/redial"
 	"github.com/injoyai/ios/server"
 	"github.com/injoyai/ios/server/listen"
 	"github.com/injoyai/logs"
-	"time"
 )
 
 /*
@@ -24,9 +25,9 @@ func main() {
 		err := listen.RunTCP(20001, func(s *server.Server) {
 			s.SetClientOption(func(c *client.Client) {
 				c.Logger.Debug(false)
-				c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
-					c.Write(msg.Payload())
-				}
+				c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
+					c.Write(msg.Bytes())
+				})
 			})
 			go s.Timer(time.Second*5, func(s *server.Server) {
 				logs.Debug("客户端连接数量:", s.GetClientLen())

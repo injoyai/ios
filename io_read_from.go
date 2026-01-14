@@ -55,7 +55,7 @@ func NewFRead2WithHandler(f FReadFunc) FRead2Func {
 				return nil, err
 			}
 			defer a.Ack()
-			return a.Payload(), nil
+			return a.Bytes(), nil
 
 		case io.Reader:
 			return f(v)

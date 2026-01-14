@@ -3,13 +3,14 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/server"
-	"github.com/injoyai/ios/server/listen"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"time"
+
+	"github.com/injoyai/ios/client"
+	"github.com/injoyai/ios/server"
+	"github.com/injoyai/ios/server/listen"
 )
 
 func main() {
@@ -23,14 +24,14 @@ func main() {
 		}()
 		s.Logger.Debug(false)
 		s.SetClientOption(func(c *client.Client) {
-			c.Event.OnConnected = func(c *client.Client) error {
+			c.OnConnected(func(c *client.Client) error {
 				//c.Logger.Debug(false)
 				go func() {
 					<-time.After(time.Second * 1)
 					c.CloseWithErr(errors.New("手动断开"))
 				}()
 				return nil
-			}
+			})
 		})
 	})
 }

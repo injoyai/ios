@@ -1,6 +1,10 @@
 package main
 
 import (
+	"io"
+	"os"
+	"time"
+
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/client/redial"
@@ -8,9 +12,6 @@ import (
 	"github.com/injoyai/ios/server"
 	"github.com/injoyai/ios/server/listen"
 	"github.com/injoyai/logs"
-	"io"
-	"os"
-	"time"
 )
 
 func main() {
@@ -32,16 +33,16 @@ func Test(n int) {
 		listen.RunTCP(10086, func(s *server.Server) {
 			s.Logger.SetLevel(common.LevelInfo)
 			s.SetClientOption(func(c *client.Client) {
-				c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
+				c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 					defer msg.Ack()
 					if start.IsZero() {
 						start = time.Now()
 					}
-					totalDeal += len(msg.Payload())
+					totalDeal += len(msg.Bytes())
 					if totalDeal >= length {
 						logs.Debugf("[处理]传输耗时: %0.1fMB/s\n", float64(totalDeal/(1<<20))/time.Now().Sub(start).Seconds())
 					}
-				}
+				})
 			})
 		})
 	case 0:
@@ -75,17 +76,17 @@ func Test(n int) {
 			s.Logger.Debug(false)
 			s.SetClientOption(func(c *client.Client) {
 				//c.SetBuffer(1024 * 10)
-				c.Event.OnReadFrom = readAll
-				c.Event.OnConnected = func(c *client.Client) error {
+				c.OnReadFrom(readAll)
+				c.OnConnected(func(c *client.Client) error {
 					return nil
-				}
-				c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
-					totalDeal += len(msg.Payload())
+				})
+				c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
+					totalDeal += len(msg.Bytes())
 					if totalDeal >= length {
 						logs.Debugf("[处理]传输耗时: %0.1fMB/s\n", float64(totalDeal/(1<<20))/time.Now().Sub(start).Seconds())
 						os.Exit(1)
 					}
-				}
+				})
 			})
 
 		})
@@ -93,17 +94,17 @@ func Test(n int) {
 		<-redial.TCP("127.0.0.1:20145", func(c *client.Client) {
 			c.Logger.Debug(false)
 			c.Logger.SetLevel(common.LevelInfo)
-			c.OnConnected = func(c *client.Client) error {
+			c.OnConnected(func(c *client.Client) error {
 				data := make([]byte, length)
 				start = time.Now()
 				_, err := c.Write(data)
 				logs.PrintErr(err)
 				logs.Debugf("[发送]传输耗时: %0.1fMB/s\n", float64(length/(1<<20))/time.Now().Sub(start).Seconds())
 				return nil
-			}
-			c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
+			})
+			c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 				logs.Debug(msg)
-			}
+			})
 
 		}).Done()
 

@@ -81,7 +81,7 @@ func (this *Model) Resp(code uint8, data []byte) *Model {
 func OnMessage(f func(m *Model)) func(c *client.Client, msg ios.Acker) {
 	return func(c *client.Client, msg ios.Acker) {
 		m := &Model{}
-		bs := msg.Payload()
+		bs := msg.Bytes()
 		if len(bs) > 2 {
 			m.Code = bs[0] >> 5
 			m.MsgID = bs[0] & 0x1F

@@ -2,6 +2,7 @@ package redial
 
 import (
 	"context"
+
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/module/memory"
@@ -48,7 +49,7 @@ func RunSSH(cfg *ssh.Config, op ...client.Option) error {
 
 func Websocket(addr string, op ...client.Option) *client.Client {
 	return client.Redial(websocket.NewDial(addr), func(c *client.Client) {
-		c.OnWrite = client.NewWriteSafe()
+		c.OnWrite(client.NewWriteSafe())
 		c.SetOption(op...)
 	})
 }

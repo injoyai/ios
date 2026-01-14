@@ -61,7 +61,7 @@ func (this *MoreRead) Read(p []byte) (n int, err error) {
 			if err != nil {
 				return 0, err
 			}
-			this.cache = a.Payload()
+			this.cache = a.Bytes()
 		}
 
 	case io.Reader:
@@ -92,7 +92,7 @@ func (this *MoreRead) ReadMessage() (bs []byte, err error) {
 	case AReader:
 		a, err := r.ReadAck()
 		defer a.Ack()
-		return a.Payload(), err
+		return a.Bytes(), err
 	case io.Reader:
 		return this.fromReader.ReadFrom(r)
 	default:

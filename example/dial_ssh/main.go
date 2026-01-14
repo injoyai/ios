@@ -4,14 +4,15 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/client/redial"
 	"github.com/injoyai/ios/module/common"
 	"github.com/injoyai/ios/module/ssh"
 	"github.com/injoyai/logs"
-	"os"
-	"time"
 )
 
 func main() {
@@ -35,9 +36,9 @@ func main() {
 
 	c.SetOption(func(c *client.Client) {
 		c.Logger.SetLevel(common.LevelError)
-		c.Event.OnDealMessage = func(c *client.Client, msg ios.Acker) {
-			fmt.Printf("\r" + string(msg.Payload()))
-		}
+		c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
+			fmt.Printf("\r" + string(msg.Bytes()))
+		})
 	})
 
 	c.Run(context.Background())

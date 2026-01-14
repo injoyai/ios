@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
+	"time"
+
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/module/tcp"
 	"github.com/injoyai/logs"
-	"time"
 )
 
 func main() {
@@ -26,7 +27,7 @@ func main() {
 	{
 
 		c := client.New(tcp.NewDial(":10086"), func(c *client.Client) {
-			c.Event.OnReconnect = client.NewReconnectInterval(time.Second * 3)
+			c.OnReconnect(client.NewReconnectInterval(time.Second * 3))
 			c.SetKey(":10087")
 			c.SetRedial()
 			//c.SetReadTimeout(time.Second * 10)

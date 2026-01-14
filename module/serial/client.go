@@ -2,6 +2,7 @@ package serial
 
 import (
 	"context"
+
 	"github.com/goburrow/serial"
 	"github.com/injoyai/ios"
 )
@@ -15,14 +16,6 @@ func NewDial(cfg *Config) ios.DialFunc {
 	}
 }
 
-func Dial(cfg *Config) (*Client, error) {
-	port, err := serial.Open(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return &Client{port}, nil
-}
-
-type Client struct {
-	serial.Port
+func Dial(cfg *Config) (serial.Port, error) {
+	return serial.Open(cfg)
 }

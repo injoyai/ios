@@ -1,8 +1,9 @@
 package server
 
 import (
-	"github.com/injoyai/ios/client"
 	"sync"
+
+	"github.com/injoyai/ios/client"
 )
 
 var (

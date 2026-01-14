@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/injoyai/base/maps/timeout"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/module/common"
-	"sync"
-	"time"
 )
 
 type Option func(s *Server)
@@ -177,11 +178,9 @@ func (this *Server) run(ctx context.Context) error {
 			}
 
 			//触发客户端的连接事件,是否需要2个事件?
-			if cli.Event != nil && cli.Event.OnConnected != nil {
-				if err := cli.Event.OnConnected(cli); err != nil {
-					cli.CloseWithErr(err)
-					return
-				}
+			if err := cli.DoConnected(cli); err != nil {
+				cli.CloseWithErr(err)
+				return
 			}
 
 			//取消重试,客户端是被连接
@@ -190,31 +189,20 @@ func (this *Server) run(ctx context.Context) error {
 			cli.SetReadTimeout(ctx, 0)
 
 			//设置修改key事件
-			onChangeKey := cli.Event.OnKeyChange
-			cli.Event.OnKeyChange = func(c *client.Client, oldKey string) {
-				if onChangeKey != nil {
-					onChangeKey(c, oldKey)
-				}
+			cli.OnKeyChange(func(c *client.Client, oldKey string) {
 				this.onChangeKey(c, oldKey)
-			}
+			})
 
 			//保持读超时状态
-			onDealMessage := cli.Event.OnDealMessage
-			cli.Event.OnDealMessage = func(c *client.Client, message ios.Acker) {
+			cli.OnDealMessage(func(c *client.Client, message ios.Acker) {
 				this.Timeout.Keep(c)
-				if onDealMessage != nil {
-					onDealMessage(c, message)
-				}
-			}
+			})
+
 			//保持写超时状态
-			onWriteWith := cli.Event.OnWriteWith
-			cli.Event.OnWriteWith = func(bs []byte) ([]byte, error) {
+			cli.OnWriteWith(func(bs []byte) ([]byte, error) {
 				this.Timeout.Keep(c)
-				if onWriteWith != nil {
-					return onWriteWith(bs)
-				}
 				return bs, nil
-			}
+			})
 
 			//把客户端设置到缓存
 			this.clientMu.Lock()

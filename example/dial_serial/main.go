@@ -3,12 +3,13 @@ package main
 import (
 	"bufio"
 	"context"
+	"os"
+	"time"
+
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/client/dial"
 	"github.com/injoyai/ios/module/serial"
 	"github.com/injoyai/logs"
-	"os"
-	"time"
 )
 
 func main() {
@@ -20,12 +21,12 @@ func main() {
 		Parity:   "N",
 		Timeout:  time.Second * 10,
 	}, func(c *client.Client) {
-		c.Event.OnDealErr = func(c *client.Client, err error) error {
+		c.OnDealErr(func(c *client.Client, err error) error {
 			if err != nil && err.Error() == "serial: timeout" {
 				return nil
 			}
 			return err
-		}
+		})
 	})
 	logs.PanicErr(err)
 

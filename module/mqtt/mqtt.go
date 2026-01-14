@@ -103,6 +103,10 @@ type Message struct {
 	mqtt.Message
 }
 
+func (this *Message) Bytes() []byte {
+	return this.Message.Payload()
+}
+
 func (this *Message) Ack() error {
 	this.Message.Ack()
 	return nil

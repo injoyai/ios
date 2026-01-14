@@ -2,11 +2,12 @@ package ssh
 
 import (
 	"context"
-	"github.com/injoyai/ios"
-	"golang.org/x/crypto/ssh"
 	"io"
 	"strings"
 	"time"
+
+	"github.com/injoyai/ios"
+	"golang.org/x/crypto/ssh"
 )
 
 func NewDial(cfg *Config) ios.DialFunc {

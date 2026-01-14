@@ -1,12 +1,13 @@
 package client
 
 import (
-	"github.com/injoyai/conv"
-	"github.com/injoyai/ios"
 	"io"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/injoyai/conv"
+	"github.com/injoyai/ios"
 )
 
 type Frame interface {
@@ -14,21 +15,80 @@ type Frame interface {
 	WriteWith(bs []byte) ([]byte, error)  //写入消息事件
 }
 
-type Event struct {
-	OnConnected   func(c *Client) error              //连接事件
-	OnReconnect   func(i int) (time.Duration, error) //重连事件,i是重连次数,1开始
-	OnDisconnect  func(c *Client, err error)         //断开连接事件
-	OnReadFrom    func(r io.Reader) ([]byte, error)  //读取数据事件,当类型是io.Reader才会触发
-	OnDealMessage func(c *Client, msg ios.Acker)     //处理消息事件
-	OnWriteWith   func(bs []byte) ([]byte, error)    //写入消息数据事件,例如封装数据格式
-	OnWrite       func(f func() error) error         //写入消息事件,例如并发安全,错误重试
-	OnKeyChange   func(c *Client, oldKey string)     //修改标识事件
-	OnDealErr     func(c *Client, err error) error   //修改错误信息事件,例翻译成中文
+type event struct {
+	onConnected   func(c *Client) error              //连接事件
+	onReconnect   func(i int) (time.Duration, error) //重连事件,i是重连次数,1开始
+	onDisconnect  []func(c *Client, err error)       //断开连接事件
+	onReadFrom    func(r io.Reader) ([]byte, error)  //读取数据事件,当类型是io.Reader才会触发
+	onDealMessage []func(c *Client, msg ios.Acker)   //处理消息事件
+	onWriteWith   []func(bs []byte) ([]byte, error)  //写入消息数据事件,例如封装数据格式
+	onWrite       func(f func() error) error         //写入消息事件,例如并发安全,错误重试
+	onKeyChange   []func(c *Client, oldKey string)   //修改标识事件
+	onDealErr     []func(c *Client, err error) error //修改错误信息事件,例翻译成中文
 }
 
-func (this *Event) WithFrame(f Frame) {
-	this.OnReadFrom = f.ReadFrom
-	this.OnWriteWith = f.WriteWith
+func (this *event) OnConnected(f func(c *Client) error) {
+	this.onConnected = f
+}
+
+func (this *event) DoConnected(c *Client) error {
+	if this.onConnected != nil {
+		return this.onConnected(c)
+	}
+	return nil
+}
+
+func (this *event) OnReconnect(f func(i int) (time.Duration, error)) {
+	if f != nil {
+		this.onReconnect = f
+	}
+}
+
+func (this *event) OnDisconnect(f func(c *Client, err error)) {
+	if f != nil {
+		this.onDisconnect = append(this.onDisconnect, f)
+	}
+}
+
+func (this *event) OnReadFrom(f func(r io.Reader) ([]byte, error)) {
+	if f != nil {
+		this.onReadFrom = f
+	}
+}
+
+func (this *event) OnDealMessage(f func(c *Client, msg ios.Acker)) {
+	if f != nil {
+		this.onDealMessage = append(this.onDealMessage, f)
+	}
+}
+
+func (this *event) OnWriteWith(f func(bs []byte) ([]byte, error)) {
+	if f != nil {
+		this.onWriteWith = append(this.onWriteWith, f)
+	}
+}
+
+func (this *event) OnWrite(f func(f func() error) error) {
+	if f != nil {
+		this.onWrite = f
+	}
+}
+
+func (this *event) OnKeyChange(f func(c *Client, oldKey string)) {
+	if f != nil {
+		this.onKeyChange = append(this.onKeyChange, f)
+	}
+}
+
+func (this *event) OnDealErr(f func(c *Client, err error) error) {
+	if f != nil {
+		this.onDealErr = append(this.onDealErr, f)
+	}
+}
+
+func (this *event) WithFrame(f Frame) {
+	this.OnReadFrom(f.ReadFrom)
+	this.OnWriteWith(f.WriteWith)
 }
 
 type Info struct {
@@ -95,7 +155,7 @@ func NewDealMessageWithChan(ch chan ios.Acker) func(c *Client, msg ios.Acker) {
 // NewDealMessageWithWriter 把数据写入到io.Writer中
 func NewDealMessageWithWriter(w io.Writer) func(c *Client, msg ios.Acker) {
 	return func(c *Client, msg ios.Acker) {
-		if _, err := w.Write(msg.Payload()); err == nil {
+		if _, err := w.Write(msg.Bytes()); err == nil {
 			msg.Ack()
 		}
 	}

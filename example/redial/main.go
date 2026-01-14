@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/client/redial"
 	"github.com/injoyai/ios/server"
 	"github.com/injoyai/ios/server/listen"
 	"github.com/injoyai/logs"
-	"time"
 )
 
 func main() {
@@ -17,7 +18,7 @@ func main() {
 		listen.RunTCP(10086, func(s *server.Server) {
 			s.Logger.Debug(false)
 			s.SetClientOption(func(c *client.Client) {
-				c.Event.OnConnected = func(c *client.Client) error {
+				c.OnConnected(func(c *client.Client) error {
 					logs.Debug("新的客户端连接")
 					c.Logger.Debug(false)
 					go func() {
@@ -25,7 +26,7 @@ func main() {
 						c.CloseWithErr(errors.New("手动断开"))
 					}()
 					return nil
-				}
+				})
 			})
 		})
 	}()

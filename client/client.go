@@ -88,7 +88,7 @@ type Client struct {
 	//各种事件,连接成功事件,数据读取(分包)事件,数据处理事件,连接关闭事件等
 	//由用户自行配置,如果必须的事件未设置,则使用默认值
 	//例如未设置读取(分包)事件,则默认使用一次读取最多4KB,能满足绝大部分需求
-	*Event
+	*event
 
 	//安全关闭,单次的生命周期,每次重连都会重新声明
 	*safe.Closer
@@ -132,9 +132,10 @@ func (this *Client) Reset() {
 	this.Info = Info{
 		CreateTime: time.Now(),
 	}
-	this.Event = &Event{
-		OnDealErr: func(c *Client, err error) error { return common.DealErr(err) },
+	this.event = &event{
+		onDealErr: func(c *Client, err error) error { return common.DealErr(err) },
 	}
+
 	this.Closer = safe.NewCloser()
 	this.Runner2 = safe.NewRunner2(nil)
 	this.Tag = maps.NewSafe()
@@ -160,8 +161,8 @@ func (this *Client) Origin() ios.ReadWriteCloser {
 // initAllReader 初始化AllReader
 func (this *Client) initAllReader() {
 	var f ios.FReader
-	if this.Event.OnReadFrom != nil {
-		f = ios.FReadFunc(this.Event.OnReadFrom)
+	if this.event.onReadFrom != nil {
+		f = ios.FReadFunc(this.event.onReadFrom)
 	}
 	switch v := this.AllReader.(type) {
 	case *ios.MoreRead:
@@ -206,8 +207,8 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 	moreWrite.Option = []ios.WriteOption{
 		func(p []byte) (_ []byte, err error) {
 			this.Logger.Writeln("["+this.GetKey()+"] ", p)
-			if this.Event.OnWriteWith != nil {
-				p, err = this.Event.OnWriteWith(p)
+			for _, f := range this.event.onWriteWith {
+				p, err = f(p)
 			}
 			this.Info.WriteTime = time.Now()
 			this.Info.WriteCount++
@@ -217,8 +218,8 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 	}
 	//写入事件
 	moreWrite.OnWrite = func(f func() error) error {
-		if this.Event != nil && this.Event.OnWrite != nil {
-			return this.Event.OnWrite(f)
+		if this.event != nil && this.event.onWrite != nil {
+			return this.event.onWrite(f)
 		}
 		return f()
 	}
@@ -235,8 +236,10 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 
 		//关闭/断开连接事件
 		this.Logger.Errorf("[%s] 断开连接: %s\n", this.GetKey(), err.Error())
-		if this.Event.OnDisconnect != nil {
-			this.Event.OnDisconnect(this, err)
+		for _, f := range this.event.onDisconnect {
+			if f != nil {
+				f(this, err)
+			}
 		}
 
 		//释放内存,读取数据的时候申明了内存,需要释放下,防止内存泄漏
@@ -278,11 +281,9 @@ func (this *Client) Dial(ctx context.Context) error {
 	this.Logger.Infof("[%s] 连接服务成功...\n", this.GetKey())
 
 	//触发连接事件
-	if this.Event.OnConnected != nil {
-		if err := this.Event.OnConnected(this); err != nil {
-			this.CloseWithErr(err)
-			return err
-		}
+	if err := this.event.DoConnected(this); err != nil {
+		this.CloseWithErr(err)
+		return err
 	}
 
 	//增加连接成功的信号,方便一些逻辑判断
@@ -311,8 +312,8 @@ func (this *Client) _dial(ctx context.Context) (ios.ReadWriteCloser, string, err
 
 	var getInterval func(int) (time.Duration, error)
 	switch {
-	case this.Event != nil && this.Event.OnReconnect != nil:
-		getInterval = this.Event.OnReconnect
+	case this.event != nil && this.event.onReconnect != nil:
+		getInterval = this.event.onReconnect
 	default:
 		getInterval = defaultReconnect
 	}
@@ -383,8 +384,8 @@ func (this *Client) SetKey(key string) *Client {
 	this.key = key
 	if this.key != oldKey {
 		this.Logger.Infof("[%s] 修改标识为 [%s]\n", oldKey, this.key)
-		if this.Event.OnKeyChange != nil {
-			this.Event.OnKeyChange(this, oldKey)
+		for _, f := range this.event.onKeyChange {
+			f(this, oldKey)
 		}
 	}
 	return this
@@ -407,11 +408,13 @@ func (this *Client) Timer(t time.Duration, f func(c *Client)) {
 
 // dealErr 自定义错误信息,例如把英文信息改中文
 func (this *Client) dealErr(err error) error {
-	if err == nil {
-		return nil
-	}
-	if this.Event != nil && this.Event.OnDealErr != nil {
-		return this.Event.OnDealErr(this, err)
+	for _, f := range this.event.onDealErr {
+		if err == nil {
+			return nil
+		}
+		if f != nil {
+			err = f(this, err)
+		}
 	}
 	return err
 }
@@ -473,11 +476,6 @@ func (this *Client) run(ctx context.Context) error {
 // _run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?
 func (this *Client) _run(ctx context.Context) (err error) {
 
-	//校验事件函数
-	if this.Event == nil {
-		this.Event = &Event{}
-	}
-
 	//运行的时候,重新加载下OnReadFrom,因为用户的Event是后设置的,固重新加载下
 	this.initAllReader()
 
@@ -533,13 +531,15 @@ func (this *Client) _run(ctx context.Context) (err error) {
 		//数据读取成功,更新时间等信息
 		this.Info.ReadTime = time.Now()
 		this.Info.ReadCount++
-		this.Info.ReadBytes += len(ack.Payload())
+		this.Info.ReadBytes += len(ack.Bytes())
 
 		//处理数据,使用事件OnDealMessage处理数据,
 		//如果未实现,则不处理数据,并确认消息
-		this.Logger.Readln("["+this.GetKey()+"] ", ack.Payload())
-		if this.Event.OnDealMessage != nil {
-			this.Event.OnDealMessage(this, ack)
+		this.Logger.Readln("["+this.GetKey()+"] ", ack.Bytes())
+		for _, f := range this.onDealMessage {
+			f(this, ack)
+		}
+		if len(this.onDealMessage) > 0 {
 			continue
 		}
 		//未设置处理事件,则直接确认

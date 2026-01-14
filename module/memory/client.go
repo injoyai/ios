@@ -2,10 +2,11 @@ package memory
 
 import (
 	"context"
-	"github.com/injoyai/base/chans"
-	"github.com/injoyai/ios"
 	"io"
 	"time"
+
+	"github.com/injoyai/base/chans"
+	"github.com/injoyai/ios"
 )
 
 func NewDial(key string) ios.DialFunc {

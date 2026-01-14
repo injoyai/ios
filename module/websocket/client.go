@@ -2,9 +2,10 @@ package websocket
 
 import (
 	"context"
+	"net/http"
+
 	"github.com/gorilla/websocket"
 	"github.com/injoyai/ios"
-	"net/http"
 )
 
 var _ ios.MReadWriteCloser = &Client{}

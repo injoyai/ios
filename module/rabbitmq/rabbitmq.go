@@ -2,6 +2,7 @@ package rabbitmq
 
 import (
 	"context"
+
 	"github.com/injoyai/ios"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -97,7 +98,7 @@ type Message struct {
 	*amqp.Delivery
 }
 
-func (this *Message) Payload() []byte {
+func (this *Message) Bytes() []byte {
 	return this.Delivery.Body
 }
 

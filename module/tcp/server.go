@@ -2,8 +2,9 @@ package tcp
 
 import (
 	"fmt"
-	"github.com/injoyai/ios"
 	"net"
+
+	"github.com/injoyai/ios"
 )
 
 var _ ios.Listener = (*Server)(nil)
