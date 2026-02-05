@@ -29,17 +29,14 @@ func (this *MoreRead) Reset(r Reader, f FReader) {
 	if v, ok := r.(*MoreRead); ok {
 		r = v.Reader
 	}
-	switch v := this.Reader.(type) {
+	switch v := this.fromReader.(type) {
 	case Buffer:
 		if v != nil && cap(v) == DefaultBufferSize {
 			bufferPool.Put(v)
 		}
 	}
 	if f == nil {
-		f = this.fromReader
-		if this.fromReader == nil {
-			f = bufferPool.Get().(Buffer)
-		}
+		f = bufferPool.Get().(Buffer)
 	}
 	this.Reader = r
 	this.cache = nil

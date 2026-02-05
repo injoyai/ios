@@ -175,7 +175,11 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 	//需要先初始化，方便OnConnect的数据读取,run的时候还会声明一次最新(用户设置过)的读取函数
 	//转换为FreeFromReader,附带内存释放的FromReader
 	//Event中的内存由用户自行控制,如果未配置(nil),则由全局pool控制生成
-	this.AllReader = ios.NewAllReader(this.buf, ios.FReadFunc(this.event.onReadFrom))
+	if this.event.onReadFrom == nil {
+		this.AllReader = ios.NewAllReader(this.buf, nil)
+	} else {
+		this.AllReader = ios.NewAllReader(this.buf, ios.FReadFunc(this.event.onReadFrom))
+	}
 	this.Info.DialTime = time.Now()
 
 	//
