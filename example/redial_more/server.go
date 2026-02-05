@@ -21,10 +21,10 @@ func main() {
 				log.Println("客户端数量:", s.GetClientLen())
 			}
 		}()
-		s.Logger.Debug(false)
+		//s.Logger.Debug(false)
 		s.SetClientOption(func(c *client.Client) {
 			c.OnConnected(func(c *client.Client) error {
-				//c.Logger.Debug(false)
+				c.Logger.Debug(false)
 				//go func() {
 				//	<-time.After(time.Second * 1)
 				//	c.CloseWithErr(errors.New("手动断开"))

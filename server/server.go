@@ -165,12 +165,12 @@ func (this *Server) run(ctx context.Context) error {
 			defer clientPool.Put(cli)
 
 			cli.Logger = this.Logger
-			cli.SetReadWriteCloser(k, c)
 			cli.SetOption(this.clientOptions...)
+			cli.SetReadWriteCloser(k, c)
 
 			//触发服务端连接事件,是否需要2个事件?
 			this.Logger.Infof("[%s] 新的客户端连接...\n", cli.Key())
-			if this.Event != nil && this.Event.OnConnected != nil {
+			if this.Event.OnConnected != nil {
 				if err := this.Event.OnConnected(this, cli); err != nil {
 					cli.CloseWithErr(err)
 					return
