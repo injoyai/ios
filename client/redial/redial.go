@@ -6,8 +6,6 @@ import (
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/module/memory"
-	"github.com/injoyai/ios/module/mqtt"
-	"github.com/injoyai/ios/module/rabbitmq"
 	"github.com/injoyai/ios/module/serial"
 	"github.com/injoyai/ios/module/ssh"
 	"github.com/injoyai/ios/module/tcp"
@@ -64,22 +62,6 @@ func Serial(cfg *serial.Config, op ...client.Option) *client.Client {
 
 func RunSerial(cfg *serial.Config, op ...client.Option) error {
 	return Serial(cfg, op...).Run(context.Background())
-}
-
-func MQTT(cfg *mqtt.Config, subscribe mqtt.Subscribe, publish mqtt.Publish, op ...client.Option) *client.Client {
-	return client.Redial(mqtt.NewDial(cfg, subscribe, publish), op...)
-}
-
-func RunMQTT(cfg *mqtt.Config, subscribe mqtt.Subscribe, publish mqtt.Publish, op ...client.Option) error {
-	return MQTT(cfg, subscribe, publish, op...).Run(context.Background())
-}
-
-func Rabbitmq(addr string, cfg *rabbitmq.Config, op ...client.Option) *client.Client {
-	return client.Redial(rabbitmq.NewDial(addr, cfg), op...)
-}
-
-func RunRabbitmq(addr string, cfg *rabbitmq.Config, op ...client.Option) error {
-	return Rabbitmq(addr, cfg, op...).Run(context.Background())
 }
 
 func Memory(key string, op ...client.Option) *client.Client {
