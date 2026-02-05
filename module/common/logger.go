@@ -2,21 +2,17 @@ package common
 
 import (
 	"encoding/hex"
+	"log/slog"
 
 	"github.com/fatih/color"
-	"github.com/injoyai/logs"
 )
 
 const (
-	LevelNone = 0
-	//LevelTrace = 1
-	LevelDebug = 2
-	LevelWrite = 3
-	LevelRead  = 4
-	LevelInfo  = 5
-	//LevelWarn  = 6
-	LevelError = 7
-	LevelAll   = 999
+	LevelAll   = 0
+	LevelDebug = 1
+	LevelInfo  = 2
+	LevelError = 3
+	LevelNone  = 9
 )
 
 type Logger interface {
@@ -33,74 +29,79 @@ type Logger interface {
 
 func NewLogger() *logger {
 	return &logger{
-		err:    logs.NewEntity("错误").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelError).SetColor(color.FgRed),
-		info:   logs.NewEntity("信息").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelInfo).SetColor(color.FgCyan),
-		read:   logs.NewEntity("读取").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelRead).SetColor(color.FgBlue),
-		write:  logs.NewEntity("写入").SetFormatter(logs.TimeFormatter).SetSelfLevel(logs.LevelWrite).SetColor(color.FgBlue),
+		Logger: slog.Default(),
 		encode: func(p []byte) string { return string(p) },
 		debug:  true,
 	}
 }
 
+var _ Logger = (*logger)(nil)
+
 type logger struct {
-	write  *logs.Entity
-	read   *logs.Entity
-	info   *logs.Entity
-	err    *logs.Entity
-	encode func(p []byte) string
+	*slog.Logger
 	debug  bool
+	level  int
+	encode func(p []byte) string
 }
 
-func (this *logger) Debug(b ...bool) {
-	this.debug = len(b) == 0 || b[0]
-}
-
-func (this *logger) SetLevel(level int) {
-	logsLevel := logs.Level(level)
-	this.write.SetLevel(logsLevel)
-	this.read.SetLevel(logsLevel)
-	this.info.SetLevel(logsLevel)
-	this.err.SetLevel(logsLevel)
-}
-
-func (this *logger) WithUTF8() {
-	this.SetEncode(func(p []byte) string { return string(p) })
-}
-
-func (this *logger) WithHEX() {
-	this.SetEncode(func(p []byte) string { return hex.EncodeToString(p) })
-}
-
-func (this *logger) SetEncode(f func(p []byte) string) {
-	this.encode = f
-}
-
-func (this *logger) Readln(prefix string, p []byte) {
-	if !this.debug {
+func (l *logger) Readln(prefix string, p []byte) {
+	if !l.debug {
 		return
 	}
-	s := this.encode(p)
-	this.read.Printf("%s%s\n", prefix, s)
-}
-
-func (this *logger) Writeln(prefix string, p []byte) {
-	if !this.debug {
+	if l.level > LevelDebug {
 		return
 	}
-	s := this.encode(p)
-	this.write.Printf("%s%s\n", prefix, s)
+	s := l.encode(p)
+	color.Blue("%s%s\n", prefix, s)
 }
 
-func (this *logger) Infof(format string, v ...interface{}) {
-	if !this.debug {
+func (l *logger) Writeln(prefix string, p []byte) {
+	if !l.debug {
 		return
 	}
-	this.info.Printf(format, v...)
+	if l.level > LevelDebug {
+		return
+	}
+	s := l.encode(p)
+	color.Blue("%s%s\n", prefix, s)
 }
 
-func (this *logger) Errorf(format string, v ...interface{}) {
-	if !this.debug {
+func (l *logger) Infof(format string, v ...interface{}) {
+	if !l.debug {
 		return
 	}
-	this.err.Printf(format, v...)
+	if l.level > LevelInfo {
+		return
+	}
+	color.Cyan(format, v...)
+}
+
+func (l *logger) Errorf(format string, v ...interface{}) {
+	if !l.debug {
+		return
+	}
+	if l.level > LevelError {
+		return
+	}
+	color.Red(format, v...)
+}
+
+func (l *logger) SetEncode(f func(p []byte) string) {
+	l.encode = f
+}
+
+func (l *logger) WithUTF8() {
+	l.SetEncode(func(p []byte) string { return string(p) })
+}
+
+func (l *logger) WithHEX() {
+	l.SetEncode(func(p []byte) string { return hex.EncodeToString(p) })
+}
+
+func (l *logger) Debug(b ...bool) {
+	l.debug = len(b) == 0 || b[0]
+}
+
+func (l *logger) SetLevel(level int) {
+	l.level = level
 }

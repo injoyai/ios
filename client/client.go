@@ -132,9 +132,8 @@ func (this *Client) Reset() {
 	this.Info = Info{
 		CreateTime: time.Now(),
 	}
-	this.event = &event{
-		onDealErr: func(c *Client, err error) error { return common.DealErr(err) },
-	}
+	this.event = &event{}
+	this.event.OnDealErr(func(c *Client, err error) error { return common.DealErr(err) })
 
 	this.Closer = safe.NewCloser()
 	this.Runner2 = safe.NewRunner2(nil)

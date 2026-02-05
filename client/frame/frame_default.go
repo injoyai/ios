@@ -5,12 +5,12 @@ import (
 	"compress/gzip"
 	"encoding/hex"
 	"fmt"
-	"github.com/injoyai/base/maps"
-	"github.com/injoyai/conv"
-	"github.com/injoyai/logs"
 	"hash/crc32"
 	"io"
 	"time"
+
+	"github.com/injoyai/base/maps"
+	"github.com/injoyai/conv"
 )
 
 /*
@@ -150,7 +150,6 @@ func (this *Frame) decodeData() error {
 		buf := new(bytes.Buffer)
 		_, err = buf.ReadFrom(gzipReader)
 		if err != nil {
-			logs.Err(err)
 			return err
 		}
 		this.Data = buf.Bytes()
