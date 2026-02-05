@@ -8,7 +8,23 @@ import (
 
 	"github.com/injoyai/conv"
 	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/module/common"
 )
+
+var (
+	// defaultReconnectInterval 默认重连时间间隔
+	defaultReconnect = NewReconnectRetreat(time.Second*2, time.Second*32, 2)
+
+	// defaultDealErr 默认处理错误
+	defaultDealErr = func(c *Client, err error) error { return common.DealErr(err) }
+)
+
+func newEvent() *event {
+	return &event{
+		onReconnect: defaultReconnect,
+		onDealErr:   defaultDealErr,
+	}
+}
 
 type Frame interface {
 	ReadFrom(r io.Reader) ([]byte, error) //读取数据事件,当类型是io.Reader才会触发
@@ -24,7 +40,7 @@ type event struct {
 	onWriteWith   []func(bs []byte) ([]byte, error)  //写入消息数据事件,例如封装数据格式
 	onWrite       func(f func() error) error         //写入消息事件,例如并发安全,错误重试
 	onKeyChange   []func(c *Client, oldKey string)   //修改标识事件
-	onDealErr     []func(c *Client, err error) error //修改错误信息事件,例翻译成中文
+	onDealErr     func(c *Client, err error) error   //修改错误信息事件,例翻译成中文
 }
 
 func (this *event) OnConnected(f func(c *Client) error) {
@@ -81,9 +97,10 @@ func (this *event) OnKeyChange(f func(c *Client, oldKey string)) {
 }
 
 func (this *event) OnDealErr(f func(c *Client, err error) error) {
-	if f != nil {
-		this.onDealErr = append(this.onDealErr, f)
+	if f == nil {
+		f = func(c *Client, err error) error { return err }
 	}
+	this.onDealErr = f
 }
 
 func (this *event) WithFrame(f Frame) {
@@ -95,11 +112,11 @@ type Info struct {
 	CreateTime time.Time //创建时间,对象创建时间,重连不会改变
 	DialTime   time.Time //连接时间,每次重连会改变
 	ReadTime   time.Time //本次连接,最后读取到数据的时间
-	ReadCount  int       //本次连接,读取数据次数
-	ReadBytes  int       //本次连接,读取数据字节
+	ReadCount  int64     //本次连接,读取数据次数
+	ReadBytes  int64     //本次连接,读取数据字节
 	WriteTime  time.Time //本次连接,最后写入数据时间
-	WriteCount int       //本次连接,写入数据次数
-	WriteBytes int       //本次连接,写入数据字节
+	WriteCount int64     //本次连接,写入数据次数
+	WriteBytes int64     //本次连接,写入数据字节
 }
 
 // NewWriteSafe 写入并发安全,例如websocket不能并发写入
@@ -125,11 +142,6 @@ func NewWriteRetry(retry int, interval ...time.Duration) func(f func() error) er
 		return
 	}
 }
-
-var (
-	// defaultReconnectInterval 默认重连时间间隔
-	defaultReconnect = NewReconnectRetreat(time.Second*2, time.Second*32, 2)
-)
 
 // NewReconnectRetreat 退避重试
 func NewReconnectRetreat(min, max time.Duration, base int) func(i int) (time.Duration, error) {

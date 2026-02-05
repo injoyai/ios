@@ -169,7 +169,7 @@ func (this *Server) run(ctx context.Context) error {
 			cli.SetOption(this.clientOptions...)
 
 			//触发服务端连接事件,是否需要2个事件?
-			this.Logger.Infof("[%s] 新的客户端连接...\n", cli.GetKey())
+			this.Logger.Infof("[%s] 新的客户端连接...\n", cli.Key())
 			if this.Event != nil && this.Event.OnConnected != nil {
 				if err := this.Event.OnConnected(this, cli); err != nil {
 					cli.CloseWithErr(err)
@@ -206,7 +206,7 @@ func (this *Server) run(ctx context.Context) error {
 
 			//把客户端设置到缓存
 			this.clientMu.Lock()
-			this.client[cli.GetKey()] = cli
+			this.client[cli.Key()] = cli
 			this.clientMu.Unlock()
 
 			//这里忽略了错误,如果panic的话,错误不会体现出来,
@@ -214,7 +214,7 @@ func (this *Server) run(ctx context.Context) error {
 
 			//等待结束之后从缓存删除客户端
 			this.clientMu.Lock()
-			delete(this.client, cli.GetKey())
+			delete(this.client, cli.Key())
 			this.clientMu.Unlock()
 
 		}(ctx, k, c)
@@ -225,14 +225,14 @@ func (this *Server) onChangeKey(c *client.Client, oldKey string) {
 	//判断是否存在老连接,存在则关闭老连接(被挤下线)
 	this.clientMu.RLock()
 	//查找这个新key是否存在实例,存在则判断2个是否是一个,不是一个则关闭老的那个
-	old, ok := this.client[c.GetKey()]
+	old, ok := this.client[c.Key()]
 	this.clientMu.RUnlock()
 	if ok && old != c {
-		old.CloseWithErr(fmt.Errorf("重复标识(%s),关闭老客户端", old.GetKey()))
+		old.CloseWithErr(fmt.Errorf("重复标识(%s),关闭老客户端", old.Key()))
 	}
 	//保存到缓存中
 	this.clientMu.Lock()
 	delete(this.client, oldKey)
-	this.client[c.GetKey()] = c
+	this.client[c.Key()] = c
 	this.clientMu.Unlock()
 }

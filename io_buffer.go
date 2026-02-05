@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	DefaultBufferSize = 4096
+	DefaultBufferSize = 1024
 )
 
 func NewBufferReader(r io.Reader, buf []byte) *BufferReader {
@@ -46,6 +46,12 @@ func (this *BufferReader) Len() int {
 
 func (this *BufferReader) Reset(r io.Reader) {
 	this.Reader = r
+	this.i = 0
+	this.j = 0
+}
+
+func (this *BufferReader) Clear() {
+	this.Reader = nil
 	this.i = 0
 	this.j = 0
 }

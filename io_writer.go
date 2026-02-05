@@ -23,31 +23,24 @@ func NewMoreWrite(w io.Writer) *MoreWrite {
 
 type MoreWrite struct {
 	io.Writer
-	Option  []WriteOption
-	OnWrite func(f func() error) error
-	Result  []WriteResult
+	OnWriteBefore func(p []byte) ([]byte, error)
+	OnWrite       func(f func() error) error
+	OnWriteAfter  func(err error) error
 }
 
 func (this *MoreWrite) Write(p []byte) (n int, err error) {
-	for _, f := range this.Option {
-		if f != nil {
-			p, err = f(p)
-			if err != nil {
-				return 0, err
-			}
+	if this.OnWriteBefore != nil {
+		p, err = this.OnWriteBefore(p)
+		if err != nil {
+			return
 		}
 	}
 	if this.OnWrite == nil {
 		this.OnWrite = func(f func() error) error { return f() }
 	}
-	err = this.OnWrite(func() error {
-		n, err = this.Writer.Write(p)
-		return err
-	})
-	for _, f := range this.Result {
-		if f != nil {
-			f(err)
-		}
+	err = this.OnWrite(func() error { n, err = this.Writer.Write(p); return err })
+	if this.OnWriteAfter != nil {
+		err = this.OnWriteAfter(err)
 	}
 	return
 }

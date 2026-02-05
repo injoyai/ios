@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -26,10 +25,10 @@ func main() {
 		s.SetClientOption(func(c *client.Client) {
 			c.OnConnected(func(c *client.Client) error {
 				//c.Logger.Debug(false)
-				go func() {
-					<-time.After(time.Second * 1)
-					c.CloseWithErr(errors.New("手动断开"))
-				}()
+				//go func() {
+				//	<-time.After(time.Second * 1)
+				//	c.CloseWithErr(errors.New("手动断开"))
+				//}()
 				return nil
 			})
 		})
