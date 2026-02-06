@@ -3,6 +3,7 @@ package common
 import (
 	"encoding/hex"
 	"log/slog"
+	"time"
 
 	"github.com/fatih/color"
 )
@@ -51,8 +52,9 @@ func (l *logger) Readln(prefix string, p []byte) {
 	if l.level > LevelDebug {
 		return
 	}
+	t := time.Now().Format(time.TimeOnly)
 	s := l.encode(p)
-	color.Blue("[读取] %s%s\n", prefix, s)
+	color.Blue(t+" [读取] %s%s\n", prefix, s)
 }
 
 func (l *logger) Writeln(prefix string, p []byte) {
@@ -62,8 +64,9 @@ func (l *logger) Writeln(prefix string, p []byte) {
 	if l.level > LevelDebug {
 		return
 	}
+	t := time.Now().Format(time.TimeOnly)
 	s := l.encode(p)
-	color.Blue("[写入] %s%s\n", prefix, s)
+	color.Blue(t+" [写入] %s%s\n", prefix, s)
 }
 
 func (l *logger) Infof(format string, v ...interface{}) {
@@ -73,7 +76,8 @@ func (l *logger) Infof(format string, v ...interface{}) {
 	if l.level > LevelInfo {
 		return
 	}
-	color.Cyan("[信息] "+format, v...)
+	t := time.Now().Format(time.TimeOnly)
+	color.Cyan(t+" [信息] "+format, v...)
 }
 
 func (l *logger) Errorf(format string, v ...interface{}) {
@@ -83,7 +87,8 @@ func (l *logger) Errorf(format string, v ...interface{}) {
 	if l.level > LevelError {
 		return
 	}
-	color.Red("[错误] "+format, v...)
+	t := time.Now().Format(time.TimeOnly)
+	color.Red(t+" [错误] "+format, v...)
 }
 
 func (l *logger) SetEncode(f func(p []byte) string) {
