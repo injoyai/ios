@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"time"
 
@@ -482,8 +483,14 @@ func (this *Client) run(ctx context.Context) error {
 // _run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?
 func (this *Client) _run(ctx context.Context) (redial bool, err error) {
 
-	//运行的时候,重新加载下OnReadFrom,因为用户的Event是后设置的,固重新加载下
-	//this.initAllReader()
+	defer func() {
+		if e := recover(); e != nil {
+			redial = false
+			err = fmt.Errorf("%v", e)
+		}
+		err = this.dealErr(err)
+		this.CloseWithErr(err)
+	}()
 
 	//超时机制
 	this.timeout.Start(ctx)
@@ -494,7 +501,6 @@ func (this *Client) _run(ctx context.Context) (redial bool, err error) {
 
 		case <-ctx.Done():
 			//上下文关闭
-			this.CloseWithErr(ctx.Err())
 			return false, ctx.Err()
 
 		case <-this.Closer.Done():
@@ -503,9 +509,7 @@ func (this *Client) _run(ctx context.Context) (redial bool, err error) {
 
 		case <-this.redialSign:
 			//手动关闭连接,然后重连1次
-			err = errors.New("手动重连")
-			this.CloseWithErr(err)
-			return true, err
+			return true, errors.New("手动重连")
 
 		default:
 
@@ -516,11 +520,7 @@ func (this *Client) _run(ctx context.Context) (redial bool, err error) {
 		//如果是Reader,则数据还处于粘包状态,需要调用时间OnReadBuffer,来进行读取
 		ack, err := this.ReadAck()
 		if err != nil {
-			err = this.dealErr(err)
-			this.CloseWithErr(err)
-			//交给closer进行处理接下来的逻辑,固这里不使用return
-			//例如重新连接等操作,这样只用写一个地方,简化代码
-			continue
+			return false, err
 		}
 
 		//数据读取成功,更新时间等信息

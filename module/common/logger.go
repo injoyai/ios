@@ -52,7 +52,7 @@ func (l *logger) Readln(prefix string, p []byte) {
 		return
 	}
 	s := l.encode(p)
-	color.Blue("%s%s\n", prefix, s)
+	color.Blue("[读取] %s%s\n", prefix, s)
 }
 
 func (l *logger) Writeln(prefix string, p []byte) {
@@ -63,7 +63,7 @@ func (l *logger) Writeln(prefix string, p []byte) {
 		return
 	}
 	s := l.encode(p)
-	color.Blue("%s%s\n", prefix, s)
+	color.Blue("[写入] %s%s\n", prefix, s)
 }
 
 func (l *logger) Infof(format string, v ...interface{}) {
@@ -73,7 +73,7 @@ func (l *logger) Infof(format string, v ...interface{}) {
 	if l.level > LevelInfo {
 		return
 	}
-	color.Cyan(format, v...)
+	color.Cyan("[信息] "+format, v...)
 }
 
 func (l *logger) Errorf(format string, v ...interface{}) {
@@ -83,7 +83,7 @@ func (l *logger) Errorf(format string, v ...interface{}) {
 	if l.level > LevelError {
 		return
 	}
-	color.Red(format, v...)
+	color.Red("[错误] "+format, v...)
 }
 
 func (l *logger) SetEncode(f func(p []byte) string) {

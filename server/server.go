@@ -206,8 +206,8 @@ func (this *Server) run(ctx context.Context) error {
 			this.client[cli.Key()] = cli
 			this.clientMu.Unlock()
 
-			//这里忽略了错误,如果panic的话,错误不会体现出来,
-			cli.Run(ctx)
+			//这里忽略了错误,错误已经通过Logger处理了
+			_ = cli.Run(ctx)
 
 			//等待结束之后从缓存删除客户端
 			this.clientMu.Lock()
