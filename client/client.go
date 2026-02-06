@@ -132,7 +132,7 @@ func (this *Client) Reset() {
 	this.AllReader = nil
 	this.MoreWriter = nil
 	this.Logger = common.NewLogger()
-	this.Info = Info{CreateTime: time.Now()}
+	this.Info = newInfo()
 	this.event = newEvent()
 	this.Closer = safe.NewCloserErr(errors.New("等待连接"))
 	this.Runner2 = safe.NewRunner2(this.run)
@@ -494,6 +494,7 @@ func (this *Client) _run(ctx context.Context) (redial bool, err error) {
 
 		case <-ctx.Done():
 			//上下文关闭
+			this.CloseWithErr(ctx.Err())
 			return false, ctx.Err()
 
 		case <-this.Closer.Done():

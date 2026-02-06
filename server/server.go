@@ -160,10 +160,7 @@ func (this *Server) run(ctx context.Context) error {
 		}
 
 		go func(ctx context.Context, k string, c ios.ReadWriteCloser) {
-			cli := clientPool.Get().(*client.Client)
-			cli.Reset()
-			defer clientPool.Put(cli)
-
+			cli := client.New(nil)
 			cli.Logger = this.Logger
 			cli.SetOption(this.clientOptions...)
 			cli.SetReadWriteCloser(k, c)

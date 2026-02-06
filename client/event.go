@@ -108,6 +108,10 @@ func (this *event) WithFrame(f Frame) {
 	this.OnWriteWith(f.WriteWith)
 }
 
+func newInfo() Info {
+	return Info{CreateTime: time.Now()}
+}
+
 type Info struct {
 	CreateTime time.Time //创建时间,对象创建时间,重连不会改变
 	DialTime   time.Time //连接时间,每次重连会改变
