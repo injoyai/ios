@@ -4,6 +4,12 @@ import (
 	"io"
 )
 
+type Reader3 interface {
+	io.Reader
+	AReader
+	MReader
+}
+
 func NewAllReader(r Reader, f FReader) *MoreRead {
 	x := &MoreRead{}
 	x.Reset(r, f)

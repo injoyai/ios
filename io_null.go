@@ -6,7 +6,10 @@ var (
 	_ Closer          = Null
 )
 
-const Null = null(0)
+const (
+	Null    = null(0)
+	Discard = Null
+)
 
 type null int8
 

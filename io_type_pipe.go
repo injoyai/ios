@@ -1,8 +1,9 @@
 package ios
 
 import (
-	"github.com/injoyai/base/chans"
 	"time"
+
+	"github.com/injoyai/base/chans"
 )
 
 // Pipe 一个双向通道
