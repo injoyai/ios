@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/injoyai/ios/client"
+	"github.com/injoyai/ios/v2/client"
 )
 
 type Event struct {

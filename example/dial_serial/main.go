@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/client/dial"
-	"github.com/injoyai/ios/module/serial"
+	"github.com/injoyai/ios/v2/client"
+	"github.com/injoyai/ios/v2/client/dial"
+	"github.com/injoyai/ios/v2/module/serial"
 	"github.com/injoyai/logs"
 )
 

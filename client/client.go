@@ -9,8 +9,8 @@ import (
 
 	"github.com/injoyai/base/maps"
 	"github.com/injoyai/base/safe"
-	"github.com/injoyai/ios"
-	"github.com/injoyai/ios/module/common"
+	"github.com/injoyai/ios/v2"
+	"github.com/injoyai/ios/v2/module/common"
 )
 
 func Run(dial ios.DialFunc, op ...Option) error {

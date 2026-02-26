@@ -3,14 +3,14 @@ package dial
 import (
 	"context"
 
-	"github.com/injoyai/ios"
-	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/module/memory"
-	"github.com/injoyai/ios/module/serial"
-	"github.com/injoyai/ios/module/ssh"
-	"github.com/injoyai/ios/module/tcp"
-	"github.com/injoyai/ios/module/unix"
-	"github.com/injoyai/ios/module/websocket"
+	"github.com/injoyai/ios/v2"
+	"github.com/injoyai/ios/v2/client"
+	"github.com/injoyai/ios/v2/module/memory"
+	"github.com/injoyai/ios/v2/module/serial"
+	"github.com/injoyai/ios/v2/module/ssh"
+	"github.com/injoyai/ios/v2/module/tcp"
+	"github.com/injoyai/ios/v2/module/unix"
+	"github.com/injoyai/ios/v2/module/websocket"
 )
 
 var (

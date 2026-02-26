@@ -4,7 +4,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 type Option func(c *Client)

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/injoyai/base/maps"
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 var manage = maps.NewGeneric[string, *Server]()

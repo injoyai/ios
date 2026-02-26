@@ -5,14 +5,12 @@ import (
 	"net"
 	"os"
 
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 func NewListen(filename string) ios.ListenFunc {
 	return func() (ios.Listener, error) {
-		if err := os.Remove(filename); err != nil {
-			return nil, err
-		}
+		os.Remove(filename)
 		listener, err := net.Listen("unix", filename)
 		if err != nil {
 			return nil, err

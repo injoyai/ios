@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 var _ ios.Listener = (*Server)(nil)

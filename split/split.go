@@ -7,7 +7,7 @@ import (
 	"regexp"
 
 	"github.com/injoyai/conv"
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 // Split 通用分包配置,适用99%的协议

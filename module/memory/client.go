@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/injoyai/base/chans"
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 func NewDial(key string) ios.DialFunc {

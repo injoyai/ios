@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/injoyai/base/safe"
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 	"net"
 	"net/http"
 )

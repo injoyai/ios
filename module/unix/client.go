@@ -4,7 +4,7 @@ import (
 	"context"
 	"net"
 
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 func NewDial(addr string) ios.DialFunc {

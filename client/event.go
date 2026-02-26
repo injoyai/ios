@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/injoyai/conv"
-	"github.com/injoyai/ios"
-	"github.com/injoyai/ios/module/common"
+	"github.com/injoyai/ios/v2"
+	"github.com/injoyai/ios/v2/module/common"
 )
 
 var (

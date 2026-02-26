@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 var _ ios.MReadWriteCloser = &Client{}

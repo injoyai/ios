@@ -4,7 +4,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 // DealErr 错误处理,常见整理成中文

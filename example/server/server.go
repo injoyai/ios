@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/injoyai/ios/module/tcp"
-	"github.com/injoyai/ios/server"
+	"github.com/injoyai/ios/v2/module/tcp"
+	"github.com/injoyai/ios/v2/server"
 	"github.com/injoyai/logs"
 )
 

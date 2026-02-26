@@ -10,9 +10,9 @@
 package main
 
 import (
-	"github.com/injoyai/ios"
-	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/client/redial"
+	"github.com/injoyai/ios/v2"
+	"github.com/injoyai/ios/v2/client"
+	"github.com/injoyai/ios/v2/client/redial"
 	"time"
 )
 
@@ -48,8 +48,8 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/injoyai/ios/client/redial"
-	"github.com/injoyai/ios/module/ssh"
+	"github.com/injoyai/ios/v2/client/redial"
+	"github.com/injoyai/ios/v2/module/ssh"
 	"os"
 )
 
@@ -85,8 +85,8 @@ package main
 
 import(
 	"bufio"
-	"github.com/injoyai/ios"
-	"github.com/injoyai/ios/client/redial"
+	"github.com/injoyai/ios/v2"
+	"github.com/injoyai/ios/v2/client/redial"
 	"os"
 )
 

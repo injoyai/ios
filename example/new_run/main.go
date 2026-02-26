@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/module/tcp"
+	"github.com/injoyai/ios/v2/client"
+	"github.com/injoyai/ios/v2/module/tcp"
 	"github.com/injoyai/logs"
 )
 

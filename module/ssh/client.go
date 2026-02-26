@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 	"golang.org/x/crypto/ssh"
 )
 

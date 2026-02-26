@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/injoyai/base/safe"
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 func NewListen(port int) func() (ios.Listener, error) {

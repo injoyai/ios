@@ -3,10 +3,10 @@ package main
 import (
 	"time"
 
-	"github.com/injoyai/ios"
-	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/client/redial"
-	"github.com/injoyai/ios/server/listen"
+	"github.com/injoyai/ios/v2"
+	"github.com/injoyai/ios/v2/client"
+	"github.com/injoyai/ios/v2/client/redial"
+	"github.com/injoyai/ios/v2/server/listen"
 )
 
 func main() {

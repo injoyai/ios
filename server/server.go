@@ -8,9 +8,9 @@ import (
 
 	"github.com/injoyai/base/maps/timeout"
 	"github.com/injoyai/base/safe"
-	"github.com/injoyai/ios"
-	"github.com/injoyai/ios/client"
-	"github.com/injoyai/ios/module/common"
+	"github.com/injoyai/ios/v2"
+	"github.com/injoyai/ios/v2/client"
+	"github.com/injoyai/ios/v2/module/common"
 )
 
 type Option func(s *Server)

@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 func NewDial(url string, body io.Reader) ios.DialFunc {

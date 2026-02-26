@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/goburrow/serial"
-	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/v2"
 )
 
 type Config = serial.Config

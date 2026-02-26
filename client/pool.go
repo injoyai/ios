@@ -1,6 +1,6 @@
 package client
 
-import "github.com/injoyai/ios"
+import "github.com/injoyai/ios/v2"
 
 var (
 	DefaultPool = NewPool(1000, func() *ios.BufferReader {
