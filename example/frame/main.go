@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"time"
 
 	"github.com/injoyai/ios"
@@ -14,17 +13,23 @@ import (
 
 func main() {
 
-	go listen.RunTCP(10089, func(s *server.Server) {
+	go listen.RunTCP(10099, func(s *server.Server) {
+		s.Logger.Debug(false)
 		s.SetClientOption(func(c *client.Client) {
 			c.WithFrame(frame.Default)
 		})
 	})
 
-	redial.TCP(":10089", func(c *client.Client) {
+	<-time.After(time.Second)
+
+	redial.RunTCP(":10099", func(c *client.Client) {
 		c.WithFrame(frame.Default)
-		c.GoTimerWriter(time.Second*5, func(w ios.MoreWriter) error {
-			return w.WriteAny(time.Now().String())
+		c.OnConnected(func(c *client.Client) error {
+			c.GoTimerWriter(time.Second*5, func(w ios.MoreWriter) error {
+				return w.WriteAny(time.Now().String())
+			})
+			return nil
 		})
-	}).Run(context.Background())
+	})
 
 }

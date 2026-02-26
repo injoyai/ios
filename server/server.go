@@ -56,8 +56,8 @@ func New(listen ios.ListenFunc, op ...Option) (*Server, error) {
 		//s.CloseAllClient(err)
 		//服务关闭事件
 		s.Logger.Infof("[%s] 关闭服务...\n", listener.Addr())
-		if s.Event != nil && s.Event.OnClose != nil {
-			s.Event.OnClose(s, err)
+		if s.Event != nil && s.Event.onClose != nil {
+			s.Event.onClose(s, err)
 		}
 		return listener.Close()
 	})
@@ -66,8 +66,8 @@ func New(listen ios.ListenFunc, op ...Option) (*Server, error) {
 	}
 	//放在用户选项之后,方便用户控制是否输出
 	s.Logger.Infof("[%s] 开启服务成功...\n", listener.Addr())
-	if s.Event.OnOpen != nil {
-		s.Event.OnOpen(s)
+	if s.Event.onOpen != nil {
+		s.Event.onOpen(s)
 	}
 	return s, nil
 }
@@ -165,19 +165,13 @@ func (this *Server) run(ctx context.Context) error {
 			cli.SetOption(this.clientOptions...)
 			cli.SetReadWriteCloser(k, c)
 
-			//触发服务端连接事件,是否需要2个事件?
+			//触发服务端连接事件
 			this.Logger.Infof("[%s] 新的客户端连接...\n", cli.Key())
-			if this.Event.OnConnected != nil {
-				if err := this.Event.OnConnected(this, cli); err != nil {
+			if this.Event.onConnected != nil {
+				if err := this.Event.onConnected(this, cli); err != nil {
 					cli.CloseWithErr(err)
 					return
 				}
-			}
-
-			//触发客户端的连接事件,是否需要2个事件?
-			if err := cli.DoConnected(cli); err != nil {
-				cli.CloseWithErr(err)
-				return
 			}
 
 			//取消重试,客户端是被连接
@@ -206,8 +200,13 @@ func (this *Server) run(ctx context.Context) error {
 			this.client[cli.Key()] = cli
 			this.clientMu.Unlock()
 
-			//这里忽略了错误,错误已经通过Logger处理了
-			_ = cli.Run(ctx)
+			//运行客户端
+			err = cli.Run(ctx)
+
+			//客户端断开连接事件
+			if this.Event.onDisConnected != nil {
+				this.Event.onDisConnected(this, cli, err)
+			}
 
 			//等待结束之后从缓存删除客户端
 			this.clientMu.Lock()

@@ -255,9 +255,11 @@ func (this *Client) Dial(ctx context.Context) error {
 	this.Logger.Infof("[%s] 连接服务成功...\n", this.Key())
 
 	//触发连接事件
-	if err := this.event.DoConnected(this); err != nil {
-		this.CloseWithErr(err)
-		return err
+	if this.event.onConnected != nil {
+		if err := this.event.onConnected(this); err != nil {
+			this.CloseWithErr(err)
+			return err
+		}
 	}
 
 	//增加连接成功的信号,方便一些逻辑判断
