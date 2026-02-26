@@ -10,9 +10,9 @@
 package main
 
 import (
-	"github.com/injoyai/ios/v2"
-	"github.com/injoyai/ios/v2/client"
-	"github.com/injoyai/ios/v2/client/redial"
+	"github.com/injoyai/ios"
+	"github.com/injoyai/ios/client"
+	"github.com/injoyai/ios/client/redial"
 	"time"
 )
 
