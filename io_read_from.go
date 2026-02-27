@@ -115,19 +115,3 @@ func ReadPrefix(r io.Reader, prefix []byte) ([]byte, error) {
 	}
 	return cache, nil
 }
-
-/*
-
-
-
- */
-
-type Buffer []byte
-
-func (this Buffer) ReadFrom(r io.Reader) ([]byte, error) {
-	n, err := r.Read(this)
-	if err != nil {
-		return nil, err
-	}
-	return this[:n], nil
-}
