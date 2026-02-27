@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/injoyai/base/maps"
@@ -48,9 +49,17 @@ func DialContext(ctx context.Context, dial ios.DialFunc, op ...Option) (*Client,
 }
 
 func New(dial ios.DialFunc, op ...Option) *Client {
-	c := &Client{}
-	c.Reset()
-	c.SetDial(dial)
+	c := &Client{
+		Logger:     common.NewLogger(),
+		Info:       newInfo(),
+		event:      newEvent(),
+		Closer:     safe.NewCloserErr(errors.New("等待连接")),
+		Runner2:    safe.NewRunner2(nil),
+		timeout:    safe.NewRunner2(nil),
+		redialSign: make(chan struct{}),
+		dial:       dial,
+	}
+	c.Runner2.SetFunc(c.run)
 	//这里直接执行Option,
 	//如果想Write,则使用OnConnect进行处理,
 	//否则设置重试等Option会无效
@@ -88,10 +97,6 @@ type Client struct {
 	//日志管理,默认使用common.NewLogger
 	Logger common.Logger
 
-	//标签,用于自定义记录连接的一些信息
-	//例如,客户端的ICCID,IMEI等
-	Tag *maps.Safe
-
 	/*
 		internal 内部字段
 	*/
@@ -108,16 +113,17 @@ type Client struct {
 	//例如,通过解析注册信息后,可以使用解析的IMEI等信息作为key
 	key string
 
+	//标签,用于自定义记录连接的一些信息
+	//例如,客户端的ICCID,IMEI等
+	tag     *maps.Safe
+	tagOnce sync.Once
+
 	//超时机制,监听客户端的读取和写入数据,维持不超时
 	timeout *safe.Runner2
 
 	//全局重连信号,未设置自动重连也可以手动重连,
 	//向这个通道发送一个信号,则客户端会进行断开重连
 	redialSign chan struct{}
-
-	//全局已连接信号,仅在连接成功的时候会向这个通道发送20个信号,
-	//便于一些逻辑的判断,如果改成单个生命周期的监听,会改变底层指针,不适用
-	dialedSign chan struct{}
 
 	//是否自动重连
 	//当连接断开的时候,自动重连
@@ -128,27 +134,6 @@ type Client struct {
 	dial ios.DialFunc
 }
 
-// Reset 重置参数,方便配合sync.Pool使用
-func (this *Client) Reset() {
-	this.AllReader = nil
-	this.MoreWriter = nil
-	this.Logger = common.NewLogger()
-	this.Info = newInfo()
-	this.event = newEvent()
-	this.Closer = safe.NewCloserErr(errors.New("等待连接"))
-	this.Runner2 = safe.NewRunner2(this.run)
-	this.Tag = maps.NewSafe()
-
-	this.key = ""
-	this.r = nil
-	this.buf = nil
-	this.timeout = safe.NewRunner2(nil)
-	this.redialSign = make(chan struct{})
-	this.dialedSign = make(chan struct{})
-	this.redial = false
-	this.dial = nil
-}
-
 // Origin 获取原始连接,
 // 尽量不要直接进行读取,
 // 因为内部封装了一层buffer,可能会造成数据混乱
@@ -156,8 +141,8 @@ func (this *Client) Origin() ios.ReadWriteCloser {
 	return this.r
 }
 
-func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
-	this.key = k
+func (this *Client) SetReadWriteCloser(key string, r ios.ReadWriteCloser) {
+	this.key = key
 	this.r = r
 
 	//设置缓存区4KB,针对io.Reader有效,能大幅度提升性能
@@ -184,9 +169,9 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 	this.Info.DialTime = time.Now()
 
 	//
-	this.MoreWriter = &ios.MoreWrite{
-		Writer: r,
-		OnWriteBefore: func(p []byte) (_ []byte, err error) {
+	this.MoreWriter = ios.NewMoreWrite(
+		r,
+		func(p []byte, write func(p []byte) error) (err error) {
 			this.Logger.Writeln("["+this.Key()+"] ", p)
 			for _, f := range this.event.onWriteWith {
 				p, err = f(p)
@@ -194,10 +179,12 @@ func (this *Client) SetReadWriteCloser(k string, r ios.ReadWriteCloser) {
 			this.Info.WriteTime = time.Now()
 			this.Info.WriteCount++
 			this.Info.WriteBytes += int64(len(p))
-			return p, err
+			if this.event.onWrite != nil {
+				return this.event.onWrite(func() error { return write(p) })
+			}
+			return write(p)
 		},
-		OnWrite: this.event.onWrite,
-	}
+	)
 
 	//重置Closer,非重新申明,节约内存
 	this.Closer.Reset()
@@ -262,17 +249,6 @@ func (this *Client) Dial(ctx context.Context) error {
 		}
 	}
 
-	//增加连接成功的信号,方便一些逻辑判断
-	//当连接成功的时候会发送信号通道(防止代码错误最多20个),则监听能收到连接成功的信号
-	//当连接关闭的时候,需要重新声明信号,方便下次阻塞
-	for i := 0; i < 20; i++ {
-		select {
-		case this.dialedSign <- struct{}{}:
-		default:
-			break
-		}
-	}
-
 	return nil
 }
 
@@ -280,18 +256,16 @@ func (this *Client) _dial(ctx context.Context) (ios.ReadWriteCloser, string, err
 	if this.dial == nil {
 		return nil, "", errors.New("dial function is nil")
 	}
+
 	//首次连接
 	r, k, err := this.dial(ctx)
 	if err == nil || !this.redial {
 		return r, k, err
 	}
 
-	var getInterval func(int) (time.Duration, error)
-	switch {
-	case this.event != nil && this.event.onReconnect != nil:
+	var getInterval = defaultReconnect
+	if this.event.onReconnect != nil {
 		getInterval = this.event.onReconnect
-	default:
-		getInterval = defaultReconnect
 	}
 
 	//尝试重连
@@ -311,6 +285,7 @@ func (this *Client) _dial(ctx context.Context) (ios.ReadWriteCloser, string, err
 			r, k, err = this.dial(ctx)
 		}
 	}
+
 	return r, k, err
 }
 
@@ -365,6 +340,11 @@ func (this *Client) SetKey(key string) *Client {
 		}
 	}
 	return this
+}
+
+func (this *Client) Tag() *maps.Safe {
+	this.tagOnce.Do(func() { this.tag = maps.NewSafe() })
+	return this.tag
 }
 
 func (this *Client) Timer(t time.Duration, f func(c *Client)) {
@@ -432,18 +412,12 @@ func (this *Client) SetRedial(b ...bool) *Client {
 	return this
 }
 
-// Redial 断开重连,是否有必要? 因为可以用其他方式实现
+// Redial 手动断开重连
 func (this *Client) Redial() {
 	select {
 	case this.redialSign <- struct{}{}:
 	default:
 	}
-}
-
-// Dialed 连接成功的信号,每次连接成功都会释放信号(最多20个)
-// 需要判断下closer是否关闭,才能保证逻辑更有效
-func (this *Client) Dialed() <-chan struct{} {
-	return this.dialedSign
 }
 
 // Done 这个是客户端生命周期结束的关闭信号,显示申明下,避免Done冲突
@@ -465,7 +439,7 @@ func (this *Client) run(ctx context.Context) error {
 		//运行
 		redial, err := this._run(ctx)
 
-		//判断是否需要重连
+		//判断是否需要重连,不重连返回错误
 		if !this.redial && !redial {
 			return err
 		}
@@ -482,7 +456,7 @@ func (this *Client) run(ctx context.Context) error {
 	}
 }
 
-// _run 运行读取数据操作,如果设置了重试,则这个run结束后立马执行run,递归下去,是否会有资源未释放?
+// _run 运行读取数据操作
 func (this *Client) _run(ctx context.Context) (redial bool, err error) {
 
 	defer func() {
@@ -519,7 +493,7 @@ func (this *Client) _run(ctx context.Context) (redial bool, err error) {
 
 		//读取数据,目前支持3种类型,Reader, AReader, MReader
 		//如果是AReader,MReader,说明是分包分好的数据,则直接读取即可
-		//如果是Reader,则数据还处于粘包状态,需要调用时间OnReadBuffer,来进行读取
+		//如果是Reader,则数据还处于粘包状态,需要调用时间OnReadFrom,来进行读取
 		ack, err := this.ReadAck()
 		if err != nil {
 			return false, err

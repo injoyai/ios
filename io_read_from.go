@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"sync"
 )
 
 func NewFRead(buf []byte) FReadFunc {
@@ -122,12 +121,6 @@ func ReadPrefix(r io.Reader, prefix []byte) ([]byte, error) {
 
 
  */
-
-var (
-	bufferPool = sync.Pool{New: func() any {
-		return Buffer(make([]byte, DefaultBufferSize))
-	}}
-)
 
 type Buffer []byte
 

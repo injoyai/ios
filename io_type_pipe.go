@@ -1,6 +1,7 @@
 package ios
 
 import (
+	"io"
 	"time"
 
 	"github.com/injoyai/base/chans"
@@ -30,19 +31,23 @@ func (this *Piper) Close() error {
 }
 
 func (this *Piper) IO() (IO, IO) {
-	i1 := &IOer{
-		MoreRead: &MoreRead{
-			Reader: this.Pipe1,
-		},
-		Writer: this.Pipe2,
-		Closer: this,
+	i1 := struct {
+		AllReader
+		io.Writer
+		io.Closer
+	}{
+		AllReader: NewAllReader(this.Pipe1, make(Buffer, DefaultBufferSize)),
+		Writer:    this.Pipe2,
+		Closer:    this,
 	}
-	i2 := &IOer{
-		MoreRead: &MoreRead{
-			Reader: this.Pipe2,
-		},
-		Writer: this.Pipe1,
-		Closer: this,
+	i2 := struct {
+		AllReader
+		io.Writer
+		io.Closer
+	}{
+		AllReader: NewAllReader(this.Pipe2, make(Buffer, DefaultBufferSize)),
+		Writer:    this.Pipe1,
+		Closer:    this,
 	}
 	return i1, i2
 }

@@ -4,20 +4,21 @@ import (
 	"io"
 )
 
-type Reader3 interface {
-	io.Reader
-	AReader
-	MReader
+var _ AllReader = (*AllRead)(nil)
+
+func NewAllReader(r Reader, f FReader) *AllRead {
+	if v, ok := r.(*AllRead); ok {
+		r = v.Reader
+	}
+	return &AllRead{
+		Reader:     r,
+		cache:      nil,
+		fromReader: f,
+	}
 }
 
-func NewAllReader(r Reader, f FReader) *MoreRead {
-	x := &MoreRead{}
-	x.Reset(r, f)
-	return x
-}
-
-// MoreRead ios.Reader转io.Reader
-type MoreRead struct {
+// AllRead ios.Reader转io.Reader
+type AllRead struct {
 	//只能是[Reader|MReader|AReader]类型
 	Reader
 
@@ -26,30 +27,11 @@ type MoreRead struct {
 	//不使用sync.Pool,因为大小不可知,防止被扩容造成的内存泄漏
 	cache []byte
 
-	//当Reader是io.Reader时有效,带Free(用于内存释放)的FromReader
-	//替换的时候,推荐手动Free(),能回到pool中,否则按正常流程被GC()
+	//当Reader是io.Reader时有效
 	fromReader FReader
 }
 
-func (this *MoreRead) Reset(r Reader, f FReader) {
-	if v, ok := r.(*MoreRead); ok {
-		r = v.Reader
-	}
-	switch v := this.fromReader.(type) {
-	case Buffer:
-		if v != nil && cap(v) == DefaultBufferSize {
-			bufferPool.Put(v)
-		}
-	}
-	if f == nil {
-		f = bufferPool.Get().(Buffer)
-	}
-	this.Reader = r
-	this.cache = nil
-	this.fromReader = f
-}
-
-func (this *MoreRead) Read(p []byte) (n int, err error) {
+func (this *AllRead) Read(p []byte) (n int, err error) {
 	switch r := this.Reader.(type) {
 	case MReader:
 		if len(this.cache) == 0 {
@@ -58,6 +40,7 @@ func (this *MoreRead) Read(p []byte) (n int, err error) {
 				return
 			}
 		}
+
 	case AReader:
 		if len(this.cache) == 0 {
 			a, err := r.ReadAck()
@@ -88,22 +71,26 @@ func (this *MoreRead) Read(p []byte) (n int, err error) {
 
 }
 
-func (this *MoreRead) ReadMessage() (bs []byte, err error) {
+func (this *AllRead) ReadMessage() (bs []byte, err error) {
 	switch r := this.Reader.(type) {
 	case MReader:
 		return r.ReadMessage()
+
 	case AReader:
 		a, err := r.ReadAck()
 		defer a.Ack()
 		return a.Bytes(), err
+
 	case io.Reader:
 		return this.fromReader.ReadFrom(r)
+
 	default:
 		return nil, ErrUnknownReader
+
 	}
 }
 
-func (this *MoreRead) ReadAck() (Acker, error) {
+func (this *AllRead) ReadAck() (Acker, error) {
 	switch r := this.Reader.(type) {
 	case MReader:
 		bs, err := r.ReadMessage()
@@ -111,21 +98,19 @@ func (this *MoreRead) ReadAck() (Acker, error) {
 			return nil, err
 		}
 		return Ack(bs), nil
+
 	case AReader:
 		return r.ReadAck()
+
 	case io.Reader:
 		bs, err := this.fromReader.ReadFrom(this)
 		if err != nil {
 			return nil, err
 		}
 		return Ack(bs), err
+
 	default:
 		return nil, ErrUnknownReader
-	}
-}
 
-type IOer struct {
-	*MoreRead
-	io.Writer
-	io.Closer
+	}
 }
