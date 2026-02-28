@@ -29,7 +29,7 @@ func main() {
 	c, err := dial.Memory("test", func(c *client.Client) {
 		c.Logger.Debug(false)
 		c.GoTimerWriter(time.Second*3, func(w ios.MoreWriter) error {
-			return w.WriteAny(time.Now().Format("2006-01-02 15:04:05"))
+			return w.WriteAny(time.Now().Format(time.DateTime))
 		})
 	})
 	logs.PanicErr(err)

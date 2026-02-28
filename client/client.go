@@ -55,7 +55,6 @@ func New(dial ios.DialFunc, op ...Option) *Client {
 		event:      newEvent(),
 		Closer:     safe.NewCloserErr(errors.New("等待连接")),
 		Runner2:    safe.NewRunner2(nil),
-		timeout:    safe.NewRunner2(nil),
 		redialSign: make(chan struct{}),
 		dial:       dial,
 	}
@@ -119,7 +118,7 @@ type Client struct {
 	tagOnce sync.Once
 
 	//超时机制,监听客户端的读取和写入数据,维持不超时
-	timeout *safe.Runner2
+	timeout time.Duration
 
 	//全局重连信号,未设置自动重连也可以手动重连,
 	//向这个通道发送一个信号,则客户端会进行断开重连
@@ -168,7 +167,7 @@ func (this *Client) SetReadWriteCloser(key string, r ios.ReadWriteCloser) {
 	}
 	this.Info.DialTime = time.Now()
 
-	//
+	//设置多种方式写入
 	this.MoreWriter = ios.NewMoreWrite(
 		r,
 		func(p []byte, write func(p []byte) error) (err error) {
@@ -194,9 +193,6 @@ func (this *Client) SetReadWriteCloser(key string, r ios.ReadWriteCloser) {
 		if er := r.Close(); er != nil {
 			return er
 		}
-
-		//关闭超时机制
-		this.timeout.Stop()
 
 		//关闭/断开连接事件
 		this.Logger.Errorf("[%s] 断开连接: %s\n", this.Key(), err.Error())
@@ -289,31 +285,9 @@ func (this *Client) _dial(ctx context.Context) (ios.ReadWriteCloser, string, err
 	return r, k, err
 }
 
-// SetReadTimeout 设置读取超时,即距离上次读取数据时间超过该设置值,则会关闭连接,0表示不超时,todo 逻辑整理的更清晰点
-func (this *Client) SetReadTimeout(ctx context.Context, timeout time.Duration) *Client {
-	this.timeout.SetFunc(func(ctx context.Context) error {
-		if timeout <= 0 {
-			return nil
-		}
-		timer := time.NewTimer(timeout)
-		defer timer.Stop()
-		for {
-			timer.Reset(timeout)
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-timer.C:
-				this.CloseWithErr(ios.ErrReadTimeout)
-				return ios.ErrReadTimeout
-			}
-		}
-	})
-
-	//不用判断客户端是否已经运行,可能还没开始执行,可能还未调用Run
-	//if this.timeout.Running() {
-	this.timeout.Restart(ctx)
-	//}
-
+// SetReadTimeout 设置读取超时
+func (this *Client) SetReadTimeout(timeout time.Duration) *Client {
+	this.timeout = timeout
 	return this
 }
 
@@ -330,6 +304,7 @@ func (this *Client) Key() string {
 	return this.key
 }
 
+// SetKey 设置标识
 func (this *Client) SetKey(key string) *Client {
 	oldKey := this.key
 	this.key = key
@@ -342,11 +317,13 @@ func (this *Client) SetKey(key string) *Client {
 	return this
 }
 
+// Tag 标签
 func (this *Client) Tag() *maps.Safe {
 	this.tagOnce.Do(func() { this.tag = maps.NewSafe() })
 	return this.tag
 }
 
+// Timer 定时任务
 func (this *Client) Timer(t time.Duration, f func(c *Client)) {
 	tick := time.NewTicker(t)
 	defer tick.Stop()
@@ -360,17 +337,6 @@ func (this *Client) Timer(t time.Duration, f func(c *Client)) {
 			}
 		}
 	}
-}
-
-// dealErr 自定义错误信息,例如把英文信息改中文
-func (this *Client) dealErr(err error) error {
-	if err == nil {
-		return nil
-	}
-	if this.event.onDealErr == nil {
-		return err
-	}
-	return this.event.onDealErr(this, err)
 }
 
 // GoTimerWriter 定时写入,容易忘记使用协程,然后阻塞,索性直接用协程
@@ -399,8 +365,8 @@ func (this *Client) GoAfter(t time.Duration, f func(c *Client)) {
 	}()
 }
 
-// CloseAll 关闭连接,并不再重试
-func (this *Client) CloseAll() error {
+// Exit 退出,并不再重试
+func (this *Client) Exit() error {
 	this.SetRedial(false)
 	return this.Closer.Close()
 }
@@ -423,6 +389,39 @@ func (this *Client) Redial() {
 // Done 这个是客户端生命周期结束的关闭信号,显示申明下,避免Done冲突
 func (this *Client) Done() <-chan struct{} {
 	return this.Runner2.Done()
+}
+
+// dealErr 自定义错误信息,例如把英文信息改中文
+func (this *Client) dealErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	if this.event.onDealErr == nil {
+		return err
+	}
+	return this.event.onDealErr(this, err)
+}
+
+// runTimeout 执行超时机制
+func (this *Client) runTimeout(ctx context.Context) error {
+	if this.timeout <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(this.timeout)
+	defer timer.Stop()
+	for {
+		if this.timeout <= 0 {
+			return nil
+		}
+		timer.Reset(this.timeout)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			this.CloseWithErr(ios.ErrReadTimeout)
+			return ios.ErrReadTimeout
+		}
+	}
 }
 
 // run 运行读取数据操作,如果设置了重试,则会自动重连
@@ -468,11 +467,22 @@ func (this *Client) _run(ctx context.Context) (redial bool, err error) {
 		this.CloseWithErr(err)
 	}()
 
-	//超时机制
-	this.timeout.Start(ctx)
-	defer this.timeout.Stop()
+	//判断是否能设置读超时
+	deadliner, isDeadliner := this.r.(ios.SetReadDeadliner)
+	if !isDeadliner {
+		go this.runTimeout(ctx)
+	}
 
 	for {
+
+		//设置读超时,如果能设置的话
+		if isDeadliner && this.timeout > 0 {
+			err = deadliner.SetReadDeadline(time.Now().Add(this.timeout))
+			if err != nil {
+				return
+			}
+		}
+
 		select {
 
 		case <-ctx.Done():

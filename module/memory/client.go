@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/injoyai/base/chans"
@@ -63,18 +62,4 @@ func (this *Client) Close() error {
 	this.toServer.Close()
 	this.fromServer.Close()
 	return nil
-}
-
-func (this *Client) sIO() io.ReadWriteCloser {
-	return &IO{
-		ReadFunc:  this.toServer.Read,
-		WriteFunc: this.fromServer.Write,
-		CloseFunc: this.Close,
-	}
-}
-
-type IO struct {
-	ios.ReadFunc
-	ios.WriteFunc
-	ios.CloseFunc
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"iter"
 	"sync"
 	"time"
 
@@ -76,10 +77,11 @@ type Server struct {
 	*Event
 	*safe.Closer
 	*safe.Runner2
-	key           string
-	Logger        common.Logger             //日志
-	Listener      ios.Listener              //listener
-	Timeout       *timeout.Timeout          //超时机制
+	Logger   common.Logger    //日志
+	Listener ios.Listener     //listener
+	Timeout  *timeout.Timeout //超时机制
+
+	key           string                    //标识
 	clientOptions []client.Option           //客户端选项
 	client        map[string]*client.Client //客户端
 	clientMu      sync.RWMutex              //锁
@@ -116,16 +118,29 @@ func (this *Server) GetClient(key string) *client.Client {
 
 // GetClientLen 获取客户端数量
 func (this *Server) GetClientLen() int {
+	this.clientMu.RLock()
+	defer this.clientMu.RUnlock()
 	return len(this.client)
 }
 
 // RangeClient 遍历客户端
-func (this *Server) RangeClient(f func(c *client.Client) bool) {
+func (this *Server) RangeClient(f func(k string, c *client.Client) bool) {
+	for k, c := range this.Clients() {
+		if !f(k, c) {
+			return
+		}
+	}
+}
+
+// Clients 遍历客户端
+func (this *Server) Clients() iter.Seq2[string, *client.Client] {
 	this.clientMu.RLock()
 	defer this.clientMu.RUnlock()
-	for _, c := range this.client {
-		if !f(c) {
-			return
+	return func(yield func(string, *client.Client) bool) {
+		for k, c := range this.client {
+			if !yield(k, c) {
+				return
+			}
 		}
 	}
 }
@@ -143,10 +158,9 @@ func (this *Server) CloseClient(key string, err error) {
 
 // CloseAllClient 关闭全部客户端
 func (this *Server) CloseAllClient(err error) {
-	this.RangeClient(func(c *client.Client) bool {
+	for _, c := range this.Clients() {
 		c.CloseWithErr(err)
-		return true
-	})
+	}
 	this.clientMu.Lock()
 	defer this.clientMu.Unlock()
 	this.client = make(map[string]*client.Client)
@@ -176,8 +190,8 @@ func (this *Server) run(ctx context.Context) error {
 
 			//取消重试,客户端是被连接
 			cli.SetRedial(false)
-			//取消读取超时机制,取消客户端,实现服务端
-			cli.SetReadTimeout(ctx, 0)
+			//取消读取超时机制,取消客户端,在服务端实现
+			cli.SetReadTimeout(0)
 
 			//设置修改key事件
 			cli.OnKeyChange(func(c *client.Client, oldKey string) {

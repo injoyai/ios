@@ -2,6 +2,7 @@ package memory
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/injoyai/base/maps"
 	"github.com/injoyai/ios/v2"
@@ -33,7 +34,16 @@ func (this *Server) Addr() string {
 
 func (this *Server) Accept() (ios.ReadWriteCloser, string, error) {
 	c := <-this.Ch
-	return c.sIO(), fmt.Sprintf("%p", c), nil
+	return struct {
+			io.Reader
+			io.Writer
+			io.Closer
+		}{
+			Reader: c.toServer,
+			Writer: c.fromServer,
+			Closer: c,
+		},
+		fmt.Sprintf("%p", c), nil
 }
 
 func (this *Server) Close() error {

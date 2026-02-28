@@ -1,6 +1,6 @@
 module github.com/injoyai/ios/v2
 
-go 1.20
+go 1.23
 
 require (
 	github.com/fatih/color v1.18.0

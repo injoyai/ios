@@ -3,6 +3,7 @@ package ios
 import (
 	"context"
 	"io"
+	"time"
 )
 
 type (
@@ -173,3 +174,7 @@ func (this Ack) Bytes() []byte { return this }
 type DialFunc func(ctx context.Context) (ReadWriteCloser, string, error)
 
 type ListenFunc func() (Listener, error)
+
+type SetReadDeadliner interface {
+	SetReadDeadline(t time.Time) error
+}
