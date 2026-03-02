@@ -22,9 +22,9 @@ func main() {
 			}
 		}()
 		//s.Logger.Debug(false)
-		s.SetClientOption(func(c *client.Client) {
+		s.OnClient(func(c *client.Client) {
 			c.OnConnected(func(c *client.Client) error {
-				c.Logger.Debug(false)
+				c.Logger.Enable(false)
 				//go func() {
 				//	<-time.After(time.Second * 1)
 				//	c.CloseWithErr(errors.New("手动断开"))

@@ -26,3 +26,33 @@ func (this *Event) OnConnected(f func(s *Server, c *client.Client) error) {
 func (this *Event) OnDisConnected(f func(s *Server, c *client.Client, err error)) {
 	this.onDisConnected = f
 }
+
+/*
+
+
+
+ */
+
+func WithClient(op ...client.Option) Option {
+	return func(s *Server) {
+		s.OnClient(op...)
+	}
+}
+
+func WithLoggerLevel(level int) Option {
+	return func(s *Server) {
+		s.Logger.SetLevel(level)
+	}
+}
+
+func WithLoggerEnable(enable ...bool) Option {
+	return func(s *Server) {
+		s.Logger.Enable(enable...)
+	}
+}
+
+func WithLoggerDisable() Option {
+	return func(s *Server) {
+		s.Logger.Enable(false)
+	}
+}

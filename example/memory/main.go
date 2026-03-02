@@ -16,7 +16,7 @@ func main() {
 
 	go listen.RunMemory("test", func(s *server.Server) {
 		//s.Logger.Debug(false)
-		s.SetClientOption(func(c *client.Client) {
+		s.OnClient(func(c *client.Client) {
 			c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 				_, err := c.Write(msg.Bytes())
 				logs.PrintErr(err)
@@ -27,7 +27,7 @@ func main() {
 	<-time.After(time.Second)
 
 	c, err := dial.Memory("test", func(c *client.Client) {
-		c.Logger.Debug(false)
+		c.Logger.Enable(false)
 		c.GoTimerWriter(time.Second*3, func(w ios.MoreWriter) error {
 			return w.WriteAny(time.Now().Format(time.DateTime))
 		})

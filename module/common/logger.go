@@ -24,7 +24,7 @@ type Logger interface {
 	SetEncode(f func(p []byte) string)
 	WithUTF8()
 	WithHEX()
-	Debug(b ...bool)
+	Enable(b ...bool)
 	SetLevel(level int)
 }
 
@@ -32,7 +32,7 @@ func NewLogger() *logger {
 	return &logger{
 		Logger: slog.Default(),
 		encode: func(p []byte) string { return string(p) },
-		debug:  true,
+		enable: true,
 	}
 }
 
@@ -40,13 +40,14 @@ var _ Logger = (*logger)(nil)
 
 type logger struct {
 	*slog.Logger
+	enable bool
 	debug  bool
 	level  int
 	encode func(p []byte) string
 }
 
 func (l *logger) Readln(prefix string, p []byte) {
-	if !l.debug {
+	if !l.enable {
 		return
 	}
 	if l.level > LevelDebug {
@@ -58,7 +59,7 @@ func (l *logger) Readln(prefix string, p []byte) {
 }
 
 func (l *logger) Writeln(prefix string, p []byte) {
-	if !l.debug {
+	if !l.enable {
 		return
 	}
 	if l.level > LevelDebug {
@@ -70,7 +71,7 @@ func (l *logger) Writeln(prefix string, p []byte) {
 }
 
 func (l *logger) Infof(format string, v ...interface{}) {
-	if !l.debug {
+	if !l.enable {
 		return
 	}
 	if l.level > LevelInfo {
@@ -81,7 +82,7 @@ func (l *logger) Infof(format string, v ...interface{}) {
 }
 
 func (l *logger) Errorf(format string, v ...interface{}) {
-	if !l.debug {
+	if !l.enable {
 		return
 	}
 	if l.level > LevelError {
@@ -103,8 +104,8 @@ func (l *logger) WithHEX() {
 	l.SetEncode(func(p []byte) string { return hex.EncodeToString(p) })
 }
 
-func (l *logger) Debug(b ...bool) {
-	l.debug = len(b) == 0 || b[0]
+func (l *logger) Enable(b ...bool) {
+	l.enable = len(b) == 0 || b[0]
 }
 
 func (l *logger) SetLevel(level int) {

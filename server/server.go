@@ -41,17 +41,16 @@ func New(listen ios.ListenFunc, op ...Option) (*Server, error) {
 		Event:    &Event{},
 		Closer:   safe.NewCloser(),
 		Runner2:  safe.NewRunner2(nil),
-		key:      listener.Addr(),
 		Logger:   common.NewLogger(),
-		Listener: listener,
-		Timeout: timeout.New().SetDealFunc(func(key interface{}) error {
+		listener: listener,
+		timeout: timeout.New().SetDealFunc(func(key interface{}) error {
 			return key.(*client.Client).CloseWithErr(ios.ErrWithTimeout)
 		}),
 		client: make(map[string]*client.Client),
 	}
 	s.Runner2.SetFunc(s.run)
-	s.Timeout.SetTimeout(time.Minute * 3) //3分钟超时(3-检查间隔会超时)
-	s.Timeout.SetInterval(time.Minute)    //1分钟检查一次
+	s.timeout.SetTimeout(time.Minute * 3) //3分钟超时(3-检查间隔会超时)
+	s.timeout.SetInterval(time.Minute)    //1分钟检查一次
 	s.Closer.SetCloseFunc(func(err error) error {
 		//关闭全部客户端,是否关闭?,net包是不关闭已连接的客户端,可以方便热启动
 		//s.CloseAllClient(err)
@@ -74,21 +73,21 @@ func New(listen ios.ListenFunc, op ...Option) (*Server, error) {
 }
 
 type Server struct {
-	*Event
-	*safe.Closer
-	*safe.Runner2
-	Logger   common.Logger    //日志
-	Listener ios.Listener     //listener
-	Timeout  *timeout.Timeout //超时机制
+	*Event                      //事件
+	*safe.Closer                //
+	*safe.Runner2               //
+	Logger        common.Logger //日志
 
-	key           string                    //标识
+	listener ios.Listener     //listene
+	timeout  *timeout.Timeout //超时机制
+
 	clientOptions []client.Option           //客户端选项
 	client        map[string]*client.Client //客户端
 	clientMu      sync.RWMutex              //锁
 }
 
-// SetClientOption 设置客户端选项
-func (this *Server) SetClientOption(op ...client.Option) *Server {
+// OnClient 设置客户端选项
+func (this *Server) OnClient(op ...client.Option) *Server {
 	this.clientOptions = append(this.clientOptions, op...)
 	return this
 }
@@ -168,7 +167,7 @@ func (this *Server) CloseAllClient(err error) {
 
 func (this *Server) run(ctx context.Context) error {
 	for {
-		c, k, err := this.Listener.Accept()
+		c, k, err := this.listener.Accept()
 		if err != nil {
 			return err
 		}
@@ -200,12 +199,12 @@ func (this *Server) run(ctx context.Context) error {
 
 			//保持读超时状态
 			cli.OnDealMessage(func(c *client.Client, message ios.Acker) {
-				this.Timeout.Keep(c)
+				this.timeout.Keep(c)
 			})
 
 			//保持写超时状态
 			cli.OnWriteWith(func(bs []byte) ([]byte, error) {
-				this.Timeout.Keep(c)
+				this.timeout.Keep(c)
 				return bs, nil
 			})
 

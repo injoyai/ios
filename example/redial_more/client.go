@@ -17,7 +17,7 @@ func main() {
 	for i := 0; i < 10000; i++ {
 		go func() {
 			redial.TCP("127.0.0.1:10086", func(c *client.Client) {
-				c.Logger.Debug(false)
+				c.Logger.Enable(false)
 				c.OnConnected(func(c *client.Client) error {
 					c.GoTimerWriter(time.Second, func(w ios.MoreWriter) error {
 						return w.WriteAny(time.Now().String())

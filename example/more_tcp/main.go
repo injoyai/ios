@@ -23,8 +23,8 @@ func main() {
 
 	go func() {
 		err := listen.RunTCP(20001, func(s *server.Server) {
-			s.SetClientOption(func(c *client.Client) {
-				c.Logger.Debug(false)
+			s.OnClient(func(c *client.Client) {
+				c.Logger.Enable(false)
 				c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 					c.Write(msg.Bytes())
 				})
@@ -39,7 +39,7 @@ func main() {
 	for i := 0; i < 10000; i++ {
 		go func() {
 			redial.TCP("127.0.0.1:20001", func(c *client.Client) {
-				c.Logger.Debug(false)
+				c.Logger.Enable(false)
 				c.GoTimerWriter(time.Second, func(w ios.MoreWriter) error {
 					return w.WriteAny(time.Now().String())
 				})

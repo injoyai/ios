@@ -16,11 +16,11 @@ func main() {
 
 	go func() {
 		listen.RunTCP(10086, func(s *server.Server) {
-			s.Logger.Debug(false)
-			s.SetClientOption(func(c *client.Client) {
+			s.Logger.Enable(false)
+			s.OnClient(func(c *client.Client) {
 				c.OnConnected(func(c *client.Client) error {
 					logs.Debug("新的客户端连接")
-					c.Logger.Debug(false)
+					c.Logger.Enable(false)
 					go func() {
 						<-time.After(time.Second * 5)
 						c.CloseWithErr(errors.New("手动断开"))

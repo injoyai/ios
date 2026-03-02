@@ -19,7 +19,7 @@ func WithRedial(b ...bool) Option {
 // WithDebug 调试
 func WithDebug(b ...bool) Option {
 	return func(c *Client) {
-		c.Logger.Debug(b...)
+		c.Logger.Enable(b...)
 	}
 }
 

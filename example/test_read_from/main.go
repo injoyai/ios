@@ -17,8 +17,8 @@ import (
 func main() {
 
 	go listen.RunTCP(8080, func(s *server.Server) {
-		s.SetClientOption(func(c *client.Client) {
-			c.Logger.Debug(false)
+		s.OnClient(func(c *client.Client) {
+			c.Logger.Enable(false)
 			c.WithFrame(frame.Default)
 			c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 				c.Write(msg.Bytes())

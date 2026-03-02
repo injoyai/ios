@@ -14,7 +14,7 @@ func main() {
 	go listen.RunTCP(12658)
 
 	redial.RunTCP(":12658", func(c *client.Client) {
-		c.Logger.Debug(false)
+		c.Logger.Enable(false)
 		c.OnConnected(func(c *client.Client) error {
 			c.GoTimerWriter(time.Second*5, func(w ios.MoreWriter) error {
 				return w.WriteAny(time.Now())

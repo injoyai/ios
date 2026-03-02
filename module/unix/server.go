@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/injoyai/ios/v2"
 )
@@ -11,6 +12,7 @@ import (
 func NewListen(filename string) ios.ListenFunc {
 	return func() (ios.Listener, error) {
 		os.Remove(filename)
+		os.MkdirAll(filepath.Dir(filename), 0755)
 		listener, err := net.Listen("unix", filename)
 		if err != nil {
 			return nil, err

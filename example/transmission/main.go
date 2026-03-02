@@ -32,7 +32,7 @@ func Test(n int) {
 		totalDeal := 0
 		listen.RunTCP(10086, func(s *server.Server) {
 			s.Logger.SetLevel(common.LevelInfo)
-			s.SetClientOption(func(c *client.Client) {
+			s.OnClient(func(c *client.Client) {
 				c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 					defer msg.Ack()
 					if start.IsZero() {
@@ -73,8 +73,8 @@ func Test(n int) {
 		totalDeal := 0
 		go listen.RunTCP(20145, func(s *server.Server) {
 			s.Logger.SetLevel(common.LevelError)
-			s.Logger.Debug(false)
-			s.SetClientOption(func(c *client.Client) {
+			s.Logger.Enable(false)
+			s.OnClient(func(c *client.Client) {
 				//c.SetBuffer(1024 * 10)
 				c.OnReadFrom(readAll)
 				c.OnConnected(func(c *client.Client) error {
@@ -92,7 +92,7 @@ func Test(n int) {
 		})
 		<-time.After(time.Second)
 		<-redial.TCP("127.0.0.1:20145", func(c *client.Client) {
-			c.Logger.Debug(false)
+			c.Logger.Enable(false)
 			c.Logger.SetLevel(common.LevelInfo)
 			c.OnConnected(func(c *client.Client) error {
 				data := make([]byte, length)

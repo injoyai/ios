@@ -14,8 +14,8 @@ import (
 func main() {
 
 	go listen.RunTCP(10099, func(s *server.Server) {
-		s.Logger.Debug(false)
-		s.SetClientOption(func(c *client.Client) {
+		s.Logger.Enable(false)
+		s.OnClient(func(c *client.Client) {
 			c.WithFrame(frame.Default)
 		})
 	})
