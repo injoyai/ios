@@ -11,10 +11,9 @@ require (
 	github.com/injoyai/logs v1.0.12
 )
 
-require github.com/kr/pretty v0.1.0 // indirect
-
 require (
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
