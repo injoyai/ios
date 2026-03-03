@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bufio"
 	"io"
 	"math"
 	"sync"
@@ -18,15 +19,15 @@ func newEvent() *event {
 }
 
 type Frame interface {
-	ReadFrom(r io.Reader) ([]byte, error) //读取数据事件,当类型是io.Reader才会触发
-	WriteWith(bs []byte) ([]byte, error)  //写入消息事件
+	ReadFrom(r *bufio.Reader) ([]byte, error) //读取数据事件,当类型是io.Reader才会触发
+	WriteWith(bs []byte) ([]byte, error)      //写入消息事件
 }
 
 type event struct {
 	onConnected   func(c *Client) error              //连接事件
 	onReconnect   func(i int) (time.Duration, error) //重连事件,i是重连次数,1开始
 	onDisconnect  []func(c *Client, err error)       //断开连接事件
-	onReadFrom    func(r io.Reader) ([]byte, error)  //读取数据事件,当类型是io.Reader才会触发
+	onReadFrom    ios.FReadFunc                      // func(r *bufio.Reader) ([]byte, error) //读取数据事件,当类型是io.Reader才会触发
 	onDealMessage []func(c *Client, msg ios.Acker)   //处理消息事件
 	onWriteWith   []func(bs []byte) ([]byte, error)  //写入消息数据事件,例如封装数据格式
 	onWrite       func(f func() error) error         //写入消息事件,例如并发安全,错误重试
@@ -50,7 +51,7 @@ func (this *event) OnDisconnect(f func(c *Client, err error)) {
 	}
 }
 
-func (this *event) OnReadFrom(f func(r io.Reader) ([]byte, error)) {
+func (this *event) OnReadFrom(f ios.FReadFunc) {
 	if f != nil {
 		this.onReadFrom = f
 	}

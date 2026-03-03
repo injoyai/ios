@@ -1,8 +1,8 @@
 package ios
 
 import (
+	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 )
 
@@ -10,18 +10,13 @@ func NewFRead(buf []byte) FReadFunc {
 	if buf == nil {
 		buf = make([]byte, DefaultBufferSize)
 	}
-	return Buffer(buf).ReadFrom
-}
-
-// NewFRead2 读取函数
-func NewFRead2(buf []byte) FRead2Func {
-	return NewFRead2WithHandler(NewFRead(buf))
+	return Buffer(buf).ReadBuffer
 }
 
 // NewFReadLeast 新建读取函数,至少读取设置的字节
 func NewFReadLeast(least int) FReadFunc {
 	buf := make([]byte, least)
-	return func(r io.Reader) ([]byte, error) {
+	return func(r *bufio.Reader) ([]byte, error) {
 		_, err := io.ReadAtLeast(r, buf, least)
 		return buf, err
 	}
@@ -37,35 +32,11 @@ func NewFRead4KB() FReadFunc {
 	return NewFRead(make([]byte, 1024*4))
 }
 
-// NewFRead2WithHandler 读取函数
-func NewFRead2WithHandler(f FReadFunc) FRead2Func {
-	if f == nil {
-		buf := Buffer(make([]byte, DefaultBufferSize))
-		f = buf.ReadFrom
-	}
-	return func(r Reader) ([]byte, error) {
-		switch v := r.(type) {
-		case MReader:
-			return v.ReadMessage()
+/*
 
-		case AReader:
-			a, err := v.ReadAck()
-			if err != nil {
-				return nil, err
-			}
-			defer a.Ack()
-			return a.Bytes(), nil
 
-		case io.Reader:
-			return f(v)
 
-		default:
-			return nil, fmt.Errorf("未知类型: %T, 未实现[Reader|MReader|AReader]", r)
-
-		}
-
-	}
-}
+ */
 
 // ReadByte 读取一字节
 func ReadByte(r io.Reader) (byte, error) {

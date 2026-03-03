@@ -1,7 +1,6 @@
 package client
 
 import (
-	"io"
 	"time"
 
 	"github.com/injoyai/ios/v2"
@@ -52,7 +51,7 @@ func WithDealMessage(f func(c *Client, msg ios.Acker)) Option {
 }
 
 // WithReadFrom 读取数据事件
-func WithReadFrom(f func(r io.Reader) ([]byte, error)) Option {
+func WithReadFrom(f ios.FReadFunc) Option {
 	return func(c *Client) {
 		c.OnReadFrom(f)
 	}

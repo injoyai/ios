@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bufio"
 	"context"
-	"io"
 	"time"
 
 	"github.com/injoyai/ios/v2"
@@ -17,7 +17,7 @@ import (
 func main() {
 
 	go listen.RunTCP(8080, func(s *server.Server) {
-		s.OnClient(func(c *client.Client) {
+		s.OnConnected(func(c *client.Client) {
 			c.Logger.Enable(false)
 			c.WithFrame(frame.Default)
 			c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
@@ -28,7 +28,7 @@ func main() {
 
 	redial.TCP("127.0.0.1:8080", func(c *client.Client) {
 		c.OnWriteWith(frame.Default.WriteWith)
-		c.OnReadFrom(func(r io.Reader) ([]byte, error) {
+		c.OnReadFrom(func(r *bufio.Reader) ([]byte, error) {
 			logs.Debug("ReadFrom")
 			return frame.Default.ReadFrom(r)
 		})

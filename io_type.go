@@ -1,6 +1,7 @@
 package ios
 
 import (
+	"bufio"
 	"context"
 	"io"
 	"time"
@@ -147,13 +148,9 @@ type MReadFunc func() ([]byte, error)
 
 func (this MReadFunc) ReadMessage() ([]byte, error) { return this() }
 
-type FReadFunc func(r io.Reader) ([]byte, error)
+type FReadFunc func(r *bufio.Reader) ([]byte, error)
 
-func (this FReadFunc) ReadFrom(r io.Reader) ([]byte, error) { return this(r) }
-
-type FRead2Func func(r Reader) ([]byte, error)
-
-func (this FRead2Func) ReadFrom(r io.Reader) ([]byte, error) { return this(r) }
+func (this FReadFunc) ReadFrom(r *bufio.Reader) ([]byte, error) { return this(r) }
 
 // WriteFunc 写入函数
 type WriteFunc func(p []byte) (int, error)

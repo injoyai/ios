@@ -1,6 +1,7 @@
 package frame
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"io"
@@ -109,7 +110,7 @@ var Default = _default{}
 
 type _default struct{}
 
-func (_default) ReadFrom(r io.Reader) ([]byte, error) {
+func (_default) ReadFrom(r *bufio.Reader) ([]byte, error) {
 	return ReadFrom(r)
 }
 

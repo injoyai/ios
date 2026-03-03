@@ -1,7 +1,7 @@
 package main
 
 import (
-	"io"
+	"bufio"
 	"os"
 	"time"
 
@@ -32,7 +32,7 @@ func Test(n int) {
 		totalDeal := 0
 		listen.RunTCP(10086, func(s *server.Server) {
 			s.Logger.SetLevel(common.LevelInfo)
-			s.OnClient(func(c *client.Client) {
+			s.OnConnected(func(c *client.Client) {
 				c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 					defer msg.Ack()
 					if start.IsZero() {
@@ -56,7 +56,7 @@ func Test(n int) {
 		length := 1000 << 20 //传输的数据大小
 		totalRead := 0
 		buf := make([]byte, 1024)
-		readAll := func(r io.Reader) (bytes []byte, err error) {
+		readAll := func(r *bufio.Reader) (bytes []byte, err error) {
 			defer func() {
 				totalRead += len(bytes)
 				if totalRead >= length {
@@ -74,12 +74,9 @@ func Test(n int) {
 		go listen.RunTCP(20145, func(s *server.Server) {
 			s.Logger.SetLevel(common.LevelError)
 			s.Logger.Enable(false)
-			s.OnClient(func(c *client.Client) {
+			s.OnConnected(func(c *client.Client) {
 				//c.SetBuffer(1024 * 10)
 				c.OnReadFrom(readAll)
-				c.OnConnected(func(c *client.Client) error {
-					return nil
-				})
 				c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 					totalDeal += len(msg.Bytes())
 					if totalDeal >= length {

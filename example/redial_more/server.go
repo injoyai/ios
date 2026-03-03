@@ -22,7 +22,7 @@ func main() {
 			}
 		}()
 		//s.Logger.Debug(false)
-		s.OnClient(func(c *client.Client) {
+		s.OnConnected(func(c *client.Client) {
 			c.OnConnected(func(c *client.Client) error {
 				c.Logger.Enable(false)
 				//go func() {

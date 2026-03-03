@@ -77,15 +77,8 @@ type Server struct {
 	listener ios.Listener     //listene
 	timeout  *timeout.Timeout //超时机制
 
-	clientOptions []client.Option           //客户端选项
-	client        map[string]*client.Client //客户端
-	clientMu      sync.RWMutex              //锁
-}
-
-// OnClient 设置客户端选项
-func (this *Server) OnClient(op ...client.Option) *Server {
-	this.clientOptions = append(this.clientOptions, op...)
-	return this
+	client   map[string]*client.Client //客户端
+	clientMu sync.RWMutex              //锁
 }
 
 // Timer 定时器
@@ -171,16 +164,22 @@ func (this *Server) run(ctx context.Context) error {
 		go func(ctx context.Context, k string, c ios.ReadWriteCloser) {
 			cli := client.New(nil)
 			cli.Logger = this.Logger
-			cli.SetOption(this.clientOptions...)
+			cli.SetOption(this.Event.clientOptions...)
 			cli.SetReadWriteCloser(k, c)
 
-			//触发服务端连接事件
+			//触发服务端连接/断开事件
 			this.Logger.Infof("[%s] 新的客户端连接...\n", cli.Key())
-			if this.Event.onConnected != nil {
-				if err := this.Event.onConnected(this, cli); err != nil {
-					cli.CloseWithErr(err)
-					return
+			defer func() {
+				//客户端断开连接事件
+				if this.Event.onDisConnected != nil {
+					this.Event.onDisConnected(this, cli, cli.Err())
 				}
+				this.Logger.Infof("[%s] 客户端断开连接...\n", cli.Key())
+			}()
+
+			//如果客户端被关闭,则退出
+			if cli.Closed() {
+				return
 			}
 
 			//取消重试,客户端是被连接
@@ -210,12 +209,7 @@ func (this *Server) run(ctx context.Context) error {
 			this.clientMu.Unlock()
 
 			//运行客户端
-			err = cli.Run(ctx)
-
-			//客户端断开连接事件
-			if this.Event.onDisConnected != nil {
-				this.Event.onDisConnected(this, cli, err)
-			}
+			_ = cli.Run(ctx)
 
 			//等待结束之后从缓存删除客户端
 			this.clientMu.Lock()

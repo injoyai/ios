@@ -15,7 +15,7 @@ func main() {
 
 	go listen.RunTCP(10099, func(s *server.Server) {
 		s.Logger.Enable(false)
-		s.OnClient(func(c *client.Client) {
+		s.OnConnected(func(c *client.Client) {
 			c.WithFrame(frame.Default)
 		})
 	})

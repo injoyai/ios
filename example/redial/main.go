@@ -17,7 +17,7 @@ func main() {
 	go func() {
 		listen.RunTCP(10086, func(s *server.Server) {
 			s.Logger.Enable(false)
-			s.OnClient(func(c *client.Client) {
+			s.OnConnected(func(c *client.Client) {
 				c.OnConnected(func(c *client.Client) error {
 					logs.Debug("新的客户端连接")
 					c.Logger.Enable(false)
