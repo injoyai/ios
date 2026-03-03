@@ -215,9 +215,11 @@ func (this *Client) SetReadWriteCloser(key string, r ios.ReadWriteCloser) {
 		}
 
 		//释放bufio.Reader回到连接池
-		this.buf.Reset(nil)
-		DefaultReaderPool.Put(this.buf)
-		this.buf = nil
+		if this.buf != nil {
+			this.buf.Reset(nil)
+			DefaultReaderPool.Put(this.buf)
+			this.buf = nil
+		}
 
 		return nil
 	})
