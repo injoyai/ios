@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -71,9 +72,9 @@ Client
 客户端的指针地址是唯一标识,key是表面的唯一标识,需要用户自己维护
 */
 type Client struct {
-	//实现多种读取方式
-	//包括 io.Reader,ios.AReader,ios.MReader
-	ios.AllReader
+
+	//ios.AReader
+	ios.AReader
 
 	//多个方式写入的封装
 	//包括 Writer,StringWriter,ByteWriter等
@@ -103,9 +104,8 @@ type Client struct {
 	//IO实例,原始数据
 	r ios.ReadWriteCloser
 
-	//基于r,带缓存的reader
-	//目前支持ios.AReader,ios.MReader,io.Reader
-	buf ios.Reader
+	//基于io.Reader,带缓存的reader
+	buf *bufio.Reader
 
 	//全局自定义标识,表明客户端的身份
 	//默认使用的是客户端的IP:PORT
@@ -143,6 +143,7 @@ func (this *Client) Origin() ios.ReadWriteCloser {
 func (this *Client) SetReadWriteCloser(key string, r ios.ReadWriteCloser) {
 	this.key = key
 	this.r = r
+	this.Info.DialTime = time.Now()
 
 	//设置缓存区4KB,针对io.Reader有效,能大幅度提升性能
 	//这个是缓存区,和实际读取的buffer不一样,固有2个内存的申明,
@@ -150,22 +151,33 @@ func (this *Client) SetReadWriteCloser(key string, r ios.ReadWriteCloser) {
 	//所以固定了size为4kb,方便内存的复用,减少(频繁重连)内存泄漏情况
 	switch v := r.(type) {
 	case io.Reader:
-		buf := DefaultPool.Get()
+		buf := DefaultReaderPool.Get().(*bufio.Reader)
 		buf.Reset(v)
-		this.buf = buf
-	default:
-		this.buf = r
-	}
+		this.AReader = ios.AReadFunc(func() (ios.Acker, error) {
+			if this.event.onReadFrom == nil {
+				bs, err := defaultReadFrame(buf)
+				return ios.Ack(bs), err
+			}
+			bs, err := this.event.onReadFrom(buf)
+			return ios.Ack(bs), err
+		})
 
-	//需要先初始化，方便OnConnect的数据读取,run的时候还会声明一次最新(用户设置过)的读取函数
-	//转换为FreeFromReader,附带内存释放的FromReader
-	//Event中的内存由用户自行控制,如果未配置(nil),则由全局pool控制生成
-	if this.event.onReadFrom == nil {
-		this.AllReader = ios.NewAllReader(this.buf, nil)
-	} else {
-		this.AllReader = ios.NewAllReader(this.buf, ios.FReadFunc(this.event.onReadFrom))
+	case ios.MReader:
+		this.AReader = ios.AReadFunc(func() (ios.Acker, error) {
+			bs, err := v.ReadMessage()
+			if err != nil {
+				return nil, err
+			}
+			return ios.Ack(bs), nil
+		})
+
+	case ios.AReader:
+		this.AReader = v
+
+	default:
+		panic(ios.ErrUnknownReader)
+
 	}
-	this.Info.DialTime = time.Now()
 
 	//设置多种方式写入
 	this.MoreWriter = ios.NewMoreWrite(
@@ -202,15 +214,10 @@ func (this *Client) SetReadWriteCloser(key string, r ios.ReadWriteCloser) {
 			}
 		}
 
-		//释放内存,读取数据的时候申明了内存,需要释放下,防止内存泄漏
-		//释放Reader的内存
-		switch v := this.buf.(type) {
-		case *ios.BufferReader:
-			if v != nil {
-				DefaultPool.Put(v)
-			}
-			this.buf = nil
-		}
+		//释放bufio.Reader回到连接池
+		this.buf.Reset(nil)
+		DefaultReaderPool.Put(this.buf)
+		this.buf = nil
 
 		return nil
 	})

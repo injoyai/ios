@@ -17,6 +17,9 @@ var (
 
 	// defaultDealErr 默认处理错误
 	defaultDealErr = func(c *Client, err error) error { return common.DealErr(err) }
+
+	// defaultReadFrame 默认读取数据方式
+	defaultReadFrame = ios.NewFRead4KB()
 )
 
 func newEvent() *event {

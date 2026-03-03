@@ -1,6 +1,7 @@
 package split
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/hex"
 	"testing"
@@ -19,7 +20,7 @@ func TestSplit_ReadFrom(t *testing.T) {
 			},
 		}
 		buf := bytes.NewBuffer([]byte{0x01, 0x03, 0x03, 0x11, 0x011, 0x04, 0x04, 0x05})
-		val, err := fn.ReadFrom(buf)
+		val, err := fn.ReadFrom(bufio.NewReader(buf))
 		if err != nil {
 			t.Error(err)
 		}
@@ -42,5 +43,5 @@ func TestLength_Check(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	t.Log(match, invalid)
+	t.Log("match:", match, "invalid:", invalid)
 }

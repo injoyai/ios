@@ -1,8 +1,10 @@
 package split
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
+	"io"
 	"regexp"
 )
 
@@ -16,56 +18,57 @@ type Split struct {
 	OnErr   func(err error) error //处理错误信息,可以重置成nil,例如超时
 }
 
-func (s *Split) ReadFrom(buf *bytes.Buffer) (result []byte, err error) {
+func (s *Split) ReadFrom(r *bufio.Reader) (result []byte, err error) {
 	defer func() {
-		if s.OnErr != nil {
+		if s.OnErr != nil && err != nil {
 			err = s.OnErr(err)
 		}
 	}()
 
 clear:
 	for {
-		bs := buf.Bytes()
-		if len(bs) == 0 {
-			return
+		// 阻塞等待至少 1 个字节
+		if _, err := r.Peek(1); err != nil {
+			if err == io.EOF {
+				return nil, nil
+			}
+			return nil, err
 		}
 
 	move:
-		for i := 0; i < len(bs); i++ {
-			// 构造当前尝试的数据 slice
-			data := bs[:i+1]
+		for i := 0; ; i++ {
+			data, err := r.Peek(i + 1)
+			if err != nil {
+				// 数据不足，等待更多
+				if errors.Is(err, bufio.ErrBufferFull) || err == io.EOF {
+					return nil, nil
+				}
+				return nil, err
+			}
 
 			for _, c := range s.Checker {
 				if c == nil {
 					continue
 				}
-
 				match, invalid, err := c.Check(data)
 				if err != nil {
 					return nil, err
 				}
-
 				if invalid {
-					// 前 i+1 字节无效，丢弃，重新尝试下一字节
-					buf.Next(i + 1)
+					// 前 i+1 字节无效，丢弃
+					r.Discard(i + 1)
 					continue clear
 				}
-
 				if !match {
-					// 数据还不够，继续追加下一个字节
+					// 数据还不够，继续增加 i
 					continue move
 				}
 			}
 
-			// 所有 Checker 都通过，找到一包
-			// 消费掉前 i+1 字节
-			buf.Next(i + 1)
-			// 返回当前完整包
+			// 找到完整包，直接返回 bufio.Reader 内部 slice
+			r.Discard(i + 1)
 			return data, nil
 		}
-
-		// 没有找到完整包，等待更多数据
-		return
 	}
 }
 
@@ -150,7 +153,7 @@ func (this Regular) Check(bs []byte) (bool, bool, error) {
  */
 
 type Length struct {
-	LittleEndian bool //支持大端小端(默认false,大端),暂不支持2143,3412...
+	LittleEndian bool //支持大端小端(默认false,大端)
 	Start, End   uint //长度起始位置,长度结束位置
 	Fixed        int  //固定增加长度,例如部分包长度指的后续长度,需补充总长度
 }
