@@ -17,11 +17,7 @@ import (
 type Option func(s *Server)
 
 func Run(listen ios.ListenFunc, op ...Option) error {
-	s, err := New(listen, op...)
-	if err != nil {
-		return err
-	}
-	return s.Run(context.Background())
+	return RunContext(context.Background(), listen, op...)
 }
 
 func RunContext(ctx context.Context, listen ios.ListenFunc, op ...Option) error {
@@ -74,8 +70,8 @@ func New(listen ios.ListenFunc, op ...Option) (*Server, error) {
 
 type Server struct {
 	*Event                      //事件
-	*safe.Closer                //
-	*safe.Runner2               //
+	*safe.Closer                //closer
+	*safe.Runner2               //runner
 	Logger        common.Logger //日志
 
 	listener ios.Listener     //listene

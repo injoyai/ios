@@ -3,135 +3,77 @@ package split
 import (
 	"bytes"
 	"errors"
-	"io"
 	"regexp"
-
-	"github.com/injoyai/conv"
-	"github.com/injoyai/ios/v2"
 )
 
-// Split 通用分包配置,适用99%的协议
-type Split struct {
-	Prefixes                       //匹配帧头
-	Suffix                         //匹配帧尾
-	Length                         //匹配长度
-	Regular                        //匹配正则
-	Checker                        //数据校验,crc,sum等
-	OnErr    func(err error) error //处理错误信息,可以重置成nil,例如超时
+type Checker interface {
+	Check([]byte) (match bool, invalid bool, err error)
 }
 
-func (this *Split) ReadFrom(r io.Reader) (result []byte, err error) {
+// Split 通用分包配置,适用99%的协议,性能一般O(n²)
+type Split struct {
+	Checker []Checker             //数据校验,crc,sum等
+	OnErr   func(err error) error //处理错误信息,可以重置成nil,例如超时
+}
 
+func (s *Split) ReadFrom(buf *bytes.Buffer) (result []byte, err error) {
 	defer func() {
-		if this.OnErr != nil {
-			err = this.OnErr(err)
+		if s.OnErr != nil {
+			err = s.OnErr(err)
 		}
 	}()
 
-loop:
+clear:
 	for {
-		result = []byte(nil)
-
-		for {
-			b, err := ios.ReadByte(r)
-			if err != nil {
-				return result, err
-			}
-			result = append(result, b)
-
-			/*
-
-			 */
-
-			//校验数据是否满足帧头
-			preMatch, invalid, err := this.Prefixes.Check(result)
-			if err != nil {
-				return result, err
-			}
-
-			if invalid {
-				//表示是无效数据,重新开始读取
-				continue loop
-			}
-
-			if !preMatch {
-				//暂时还不满足所有要求,等待读取一字节继续判断
-				continue
-			}
-
-			/*
-
-			 */
-
-			//校验数据是否满足帧尾
-			sufMatch, invalid, err := this.Suffix.Check(result)
-			if err != nil {
-				return result, err
-			}
-
-			if invalid {
-				//表示是无效数据,重新开始读取
-				continue loop
-			}
-
-			if !sufMatch {
-				//暂时还不满足所有要求,等待读取一字节继续判断
-				continue
-			}
-
-			/*
-
-			 */
-
-			//校验数据长度
-			lenMatch, invalid, err := this.Length.Check(result)
-			if err != nil {
-				return result, err
-			}
-
-			if invalid {
-				//表示是无效数据,重新开始读取
-				continue loop
-			}
-
-			if !lenMatch {
-				//暂时还不满足所有要求,等待读取一字节继续判断
-				continue
-			}
-
-			/*
-
-			 */
-
-			regMatch, invalid, err := this.Regular.Check(result)
-			if err != nil {
-				return result, err
-			}
-
-			if invalid {
-				//表示是无效数据,重新开始读取
-				continue loop
-			}
-
-			if !regMatch {
-				//暂时还不满足所有要求,等待读取一字节继续判断
-				continue
-			}
-
-			/*
-
-			 */
-
-			if this.Checker != nil && !this.Checker.Check(result) {
-				//表示是无效数据,重新开始读取
-				continue loop
-			}
-
-			return result, nil
-
+		bs := buf.Bytes()
+		if len(bs) == 0 {
+			return
 		}
+
+	move:
+		for i := 0; i < len(bs); i++ {
+			// 构造当前尝试的数据 slice
+			data := bs[:i+1]
+
+			for _, c := range s.Checker {
+				if c == nil {
+					continue
+				}
+
+				match, invalid, err := c.Check(data)
+				if err != nil {
+					return nil, err
+				}
+
+				if invalid {
+					// 前 i+1 字节无效，丢弃，重新尝试下一字节
+					buf.Next(i + 1)
+					continue clear
+				}
+
+				if !match {
+					// 数据还不够，继续追加下一个字节
+					continue move
+				}
+			}
+
+			// 所有 Checker 都通过，找到一包
+			// 消费掉前 i+1 字节
+			buf.Next(i + 1)
+			// 返回当前完整包
+			return data, nil
+		}
+
+		// 没有找到完整包，等待更多数据
+		return
 	}
 }
+
+/*
+
+
+
+ */
 
 type Prefixes []Prefix
 
@@ -153,18 +95,29 @@ func (this Prefixes) Check(bs []byte) (match bool, invalid bool, err error) {
 	return
 }
 
+/*
+
+
+
+ */
+
 type Prefix []byte
 
-func (this Prefix) Check(bs []byte) (match bool, invalid bool, err error) {
-	for i, b := range bs {
-		if i < len(this) && this[i] != b {
-			return false, true, nil
-		}
+func (this Prefix) Check(bs []byte) (bool, bool, error) {
+	if len(bs) >= len(this) && !bytes.HasPrefix(bs, this) {
+		return false, true, nil
 	}
-	match = bytes.HasPrefix(bs, this)
-	invalid = !match && len(bs) > len(this)
-	return
+	if len(bs) < len(this) {
+		return false, false, nil
+	}
+	return true, false, nil
 }
+
+/*
+
+
+
+ */
 
 type Suffix []byte
 
@@ -173,16 +126,28 @@ func (this Suffix) Check(bs []byte) (match bool, invalid bool, err error) {
 	return
 }
 
-type Regular string
+/*
 
-func (this Regular) Check(bs []byte) (match bool, invalid bool, err error) {
-	if len(this) == 0 {
-		match = true
-		return
-	}
-	match, err = regexp.Match(string(this), bs)
-	return
+
+
+ */
+
+type Regular struct {
+	*regexp.Regexp
 }
+
+func (this Regular) Check(bs []byte) (bool, bool, error) {
+	if this.Regexp == nil {
+		return true, false, nil
+	}
+	return this.Regexp.Match(bs), false, nil
+}
+
+/*
+
+
+
+ */
 
 type Length struct {
 	LittleEndian bool //支持大端小端(默认false,大端),暂不支持2143,3412...
@@ -208,13 +173,19 @@ func (this Length) Check(bs []byte) (match bool, invalid bool, err error) {
 	}
 
 	//获取数据总长度
-	lenBytes := bs[this.Start : this.End+1]
+	length := 0
 	if this.LittleEndian {
-		lenBytes = Reverse(lenBytes)
+		for i := this.End; i >= this.Start; i-- {
+			length = (length << 8) | int(bs[i])
+		}
+	} else {
+		for i := this.Start; i <= this.End; i++ {
+			length = (length << 8) | int(bs[i])
+		}
 	}
 
 	//增加附加长度
-	length := conv.Int(lenBytes) + this.Fixed
+	length += this.Fixed
 
 	match = length == len(bs)
 	invalid = length < len(bs)
@@ -222,11 +193,58 @@ func (this Length) Check(bs []byte) (match bool, invalid bool, err error) {
 	return
 }
 
-// Reverse 倒序
-func Reverse(bs []byte) []byte {
-	x := make([]byte, len(bs))
-	for i, v := range bs {
-		x[len(bs)-i-1] = v
+/*
+
+
+
+ */
+
+// CRC16Modbus 校验器
+type CRC16Modbus struct{}
+
+func (c CRC16Modbus) Check(bs []byte) (bool, bool, error) {
+	if len(bs) < 3 {
+		return false, false, nil
 	}
-	return x
+	payload := bs[:len(bs)-2]
+	crc := crc16Modbus(payload)
+	crcLow := byte(crc & 0xFF)
+	crcHigh := byte(crc >> 8)
+	return bs[len(bs)-2] == crcLow && bs[len(bs)-1] == crcHigh, false, nil
+}
+
+// CRC16-Modbus 算法
+func crc16Modbus(data []byte) uint16 {
+	var crc uint16 = 0xFFFF
+	for _, b := range data {
+		crc ^= uint16(b)
+		for i := 0; i < 8; i++ {
+			if crc&0x0001 != 0 {
+				crc >>= 1
+				crc ^= 0xA001
+			} else {
+				crc >>= 1
+			}
+		}
+	}
+	return crc
+}
+
+/*
+
+
+
+ */
+
+type SumLast struct{}
+
+func (s SumLast) Check(bs []byte) (bool, bool, error) {
+	if len(bs) < 2 {
+		return false, false, nil
+	}
+	sum := byte(0)
+	for _, b := range bs[:len(bs)-1] {
+		sum += b
+	}
+	return sum == bs[len(bs)-1], false, nil
 }
