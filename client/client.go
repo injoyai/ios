@@ -151,8 +151,13 @@ func (this *Client) SetReadWriteCloser(key string, r ios.ReadWriteCloser) {
 	//所以固定了size为4kb,方便内存的复用,减少(频繁重连)内存泄漏情况
 	switch v := r.(type) {
 	case io.Reader:
-		buf := DefaultReaderPool.Get()
-		buf.Reset(v)
+		var buf *bufio.Reader
+		if DefaultReaderPool != nil {
+			buf = DefaultReaderPool.Get()
+			buf.Reset(v)
+		} else {
+			buf = bufio.NewReader(v)
+		}
 		this.AReader = ios.AReadFunc(func() (ios.Acker, error) {
 			if this.event.onReadFrom == nil {
 				bs, err := defaultReadFrame(buf)
@@ -215,10 +220,12 @@ func (this *Client) SetReadWriteCloser(key string, r ios.ReadWriteCloser) {
 		}
 
 		//释放bufio.Reader回到连接池
-		if this.buf != nil {
-			this.buf.Reset(nil)
-			DefaultReaderPool.Put(this.buf)
-			this.buf = nil
+		if DefaultReaderPool != nil {
+			if this.buf != nil {
+				this.buf.Reset(nil)
+				DefaultReaderPool.Put(this.buf)
+				this.buf = nil
+			}
 		}
 
 		return nil
