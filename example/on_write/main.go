@@ -15,11 +15,10 @@ func main() {
 
 	redial.RunTCP(":12658", func(c *client.Client) {
 		c.Logger.Enable(false)
-		c.OnConnected(func(c *client.Client) error {
+		c.OnConnected(func(c *client.Client) {
 			c.GoTimerWriter(time.Second*5, func(w ios.MoreWriter) error {
 				return w.WriteAny(time.Now())
 			})
-			return nil
 		})
 		c.OnWrite(func(f func() error) error {
 			//把写入数据重置掉

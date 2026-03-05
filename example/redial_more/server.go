@@ -23,13 +23,12 @@ func main() {
 		}()
 		//s.Logger.Debug(false)
 		s.OnClient(func(c *client.Client) {
-			c.OnConnected(func(c *client.Client) error {
+			c.OnConnected(func(c *client.Client) {
 				c.Logger.Enable(false)
 				//go func() {
 				//	<-time.After(time.Second * 1)
 				//	c.CloseWithErr(errors.New("手动断开"))
 				//}()
-				return nil
 			})
 		})
 	})

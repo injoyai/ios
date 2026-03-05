@@ -24,11 +24,10 @@ func main() {
 
 	redial.RunTCP(":10099", func(c *client.Client) {
 		c.WithFrame(frame.Default)
-		c.OnConnected(func(c *client.Client) error {
+		c.OnConnected(func(c *client.Client) {
 			c.GoTimerWriter(time.Second*5, func(w ios.MoreWriter) error {
 				return w.WriteAny(time.Now().String())
 			})
-			return nil
 		})
 	})
 

@@ -18,14 +18,13 @@ func main() {
 		listen.RunTCP(10086, func(s *server.Server) {
 			s.Logger.Enable(false)
 			s.OnClient(func(c *client.Client) {
-				c.OnConnected(func(c *client.Client) error {
+				c.OnConnected(func(c *client.Client) {
 					logs.Debug("新的客户端连接")
 					c.Logger.Enable(false)
 					go func() {
 						<-time.After(time.Second * 5)
 						c.CloseWithErr(errors.New("手动断开"))
 					}()
-					return nil
 				})
 			})
 		})

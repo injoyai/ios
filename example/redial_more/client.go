@@ -18,7 +18,7 @@ func main() {
 		go func() {
 			redial.TCP("127.0.0.1:10086", func(c *client.Client) {
 				c.Logger.Enable(false)
-				c.OnConnected(func(c *client.Client) error {
+				c.OnConnected(func(c *client.Client) {
 					c.GoTimerWriter(time.Second, func(w ios.MoreWriter) error {
 						return w.WriteAny(time.Now().String())
 					})
@@ -26,7 +26,6 @@ func main() {
 						<-time.After(time.Second * 6)
 						c.Close()
 					}()
-					return nil
 				})
 			}).Run(context.Background())
 		}()
