@@ -32,7 +32,7 @@ func Test(n int) {
 		totalDeal := 0
 		listen.RunTCP(10086, func(s *server.Server) {
 			s.Logger.SetLevel(common.LevelInfo)
-			s.OnConnected(func(c *client.Client) {
+			s.OnClient(func(c *client.Client) {
 				c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 					defer msg.Ack()
 					if start.IsZero() {
@@ -74,7 +74,7 @@ func Test(n int) {
 		go listen.RunTCP(20145, func(s *server.Server) {
 			s.Logger.SetLevel(common.LevelError)
 			s.Logger.Enable(false)
-			s.OnConnected(func(c *client.Client) {
+			s.OnClient(func(c *client.Client) {
 				//c.SetBuffer(1024 * 10)
 				c.OnReadFrom(readAll)
 				c.OnDealMessage(func(c *client.Client, msg ios.Acker) {

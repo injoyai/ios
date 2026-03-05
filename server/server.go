@@ -165,27 +165,18 @@ func (this *Server) run(ctx context.Context) error {
 			cli := client.New(nil)
 			cli.Logger = this.Logger
 			cli.SetOption(this.Event.clientOptions...)
+			cli.SetRedial(false)  //取消重试,客户端是被连接
+			cli.SetReadTimeout(0) //取消读取超时机制,取消客户端,在服务端实现
 			cli.SetReadWriteCloser(k, c)
 
 			//触发服务端连接/断开事件
 			this.Logger.Infof("[%s] 新的客户端连接...\n", cli.Key())
-			defer func() {
-				//客户端断开连接事件
-				if this.Event.onDisConnected != nil {
-					this.Event.onDisConnected(this, cli, cli.Err())
-				}
-				this.Logger.Infof("[%s] 客户端断开连接...\n", cli.Key())
-			}()
+			defer func() { this.Logger.Infof("[%s] 客户端断开连接...\n", cli.Key()) }()
 
-			//如果客户端被关闭,则退出
-			if cli.Closed() {
+			//如果客户端返回错误或者被关闭,则退出
+			if err = cli.DoConnected(cli); err != nil || cli.Closed() {
 				return
 			}
-
-			//取消重试,客户端是被连接
-			cli.SetRedial(false)
-			//取消读取超时机制,取消客户端,在服务端实现
-			cli.SetReadTimeout(0)
 
 			//设置修改key事件
 			cli.OnKeyChange(func(c *client.Client, oldKey string) {

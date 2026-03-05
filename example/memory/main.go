@@ -16,7 +16,7 @@ func main() {
 
 	go listen.RunMemory("test", func(s *server.Server) {
 		//s.Logger.Debug(false)
-		s.OnConnected(func(c *client.Client) {
+		s.OnClient(func(c *client.Client) {
 			c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 				_, err := c.Write(msg.Bytes())
 				logs.PrintErr(err)

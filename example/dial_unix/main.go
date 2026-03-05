@@ -29,7 +29,7 @@ func main() {
 	}()
 
 	err := listen.RunUnix(filename, func(s *server.Server) {
-		s.OnConnected(func(c *client.Client) {
+		s.OnClient(func(c *client.Client) {
 			c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 				log.Println("1:", string(msg.Bytes()))
 			})

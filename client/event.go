@@ -39,6 +39,16 @@ func (this *event) OnConnected(f func(c *Client) error) {
 	this.onConnected = f
 }
 
+func (this *event) DoConnected(c *Client) error {
+	if this.onConnected != nil {
+		if err := this.onConnected(c); err != nil {
+			c.CloseWithErr(err)
+			return err
+		}
+	}
+	return nil
+}
+
 func (this *event) OnReconnect(f func(i int) (time.Duration, error)) {
 	if f != nil {
 		this.onReconnect = f

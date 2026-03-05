@@ -23,7 +23,7 @@ func main() {
 
 	go func() {
 		err := listen.RunTCP(20001, func(s *server.Server) {
-			s.OnConnected(func(c *client.Client) {
+			s.OnClient(func(c *client.Client) {
 				c.Logger.Enable(false)
 				c.OnDealMessage(func(c *client.Client, msg ios.Acker) {
 					c.Write(msg.Bytes())

@@ -254,14 +254,8 @@ func (this *Client) Dial(ctx context.Context) error {
 	this.Logger.Infof("[%s] 连接服务成功...\n", this.Key())
 
 	//触发连接事件
-	if this.event.onConnected != nil {
-		if err := this.event.onConnected(this); err != nil {
-			this.CloseWithErr(err)
-			return err
-		}
-	}
+	return this.event.DoConnected(this)
 
-	return nil
 }
 
 func (this *Client) _dial(ctx context.Context) (ios.ReadWriteCloser, string, error) {
