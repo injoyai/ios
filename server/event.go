@@ -22,6 +22,15 @@ func (this *Event) OnClient(op ...client.Option) {
 	this.clientOptions = append(this.clientOptions, op...)
 }
 
+func (this *Event) OnClientConnected(op ...client.Option) {
+	this.clientOptions = append(this.clientOptions, func(c *client.Client) {
+		c.OnConnected(func(c *client.Client) error {
+			c.SetOption(op...)
+			return nil
+		})
+	})
+}
+
 /*
 
 

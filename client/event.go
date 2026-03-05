@@ -24,7 +24,7 @@ type Frame interface {
 }
 
 type event struct {
-	onConnected   func(c *Client) error              //连接事件
+	onConnected   []Option                           //连接事件
 	onReconnect   func(i int) (time.Duration, error) //重连事件,i是重连次数,1开始
 	onDisconnect  []func(c *Client, err error)       //断开连接事件
 	onReadFrom    ios.FReadFunc                      // func(r *bufio.Reader) ([]byte, error) //读取数据事件,当类型是io.Reader才会触发
@@ -35,18 +35,12 @@ type event struct {
 	onDealErr     func(c *Client, err error) error   //修改错误信息事件,例翻译成中文
 }
 
-func (this *event) OnConnected(f func(c *Client) error) {
-	this.onConnected = f
+func (this *event) OnConnected(f ...Option) {
+	this.onConnected = append(this.onConnected, f...)
 }
 
-func (this *event) DoConnected(c *Client) error {
-	if this.onConnected != nil {
-		if err := this.onConnected(c); err != nil {
-			c.CloseWithErr(err)
-			return err
-		}
-	}
-	return nil
+func (this *event) DoConnected(c *Client) {
+	c.SetOption(this.onConnected...)
 }
 
 func (this *event) OnReconnect(f func(i int) (time.Duration, error)) {

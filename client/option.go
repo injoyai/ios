@@ -86,9 +86,9 @@ func WithFrame(f Frame) Option {
 }
 
 // WithConnect 建立连接事件
-func WithConnect(f func(c *Client) error) Option {
+func WithConnect(op ...Option) Option {
 	return func(c *Client) {
-		c.OnConnected(f)
+		c.OnConnected(op...)
 	}
 }
 

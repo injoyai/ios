@@ -19,11 +19,10 @@ func main() {
 	go func() {
 		<-time.After(time.Second)
 		dial.RunUnix(filename, func(c *client.Client) {
-			c.OnConnected(func(c *client.Client) error {
+			c.OnConnected(func(c *client.Client) {
 				c.GoTimerWriter(time.Minute, func(w ios.MoreWriter) error {
 					return w.WriteAny(time.Now())
 				})
-				return nil
 			})
 		})
 	}()

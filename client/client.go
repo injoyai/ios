@@ -254,8 +254,9 @@ func (this *Client) Dial(ctx context.Context) error {
 	this.Logger.Infof("[%s] 连接服务成功...\n", this.Key())
 
 	//触发连接事件
-	return this.event.DoConnected(this)
+	this.event.DoConnected(this)
 
+	return nil
 }
 
 func (this *Client) _dial(ctx context.Context) (ios.ReadWriteCloser, string, error) {
@@ -303,8 +304,10 @@ func (this *Client) SetReadTimeout(timeout time.Duration) *Client {
 
 // SetOption 设置选项,立马执行
 func (this *Client) SetOption(op ...Option) *Client {
-	for _, fn := range op {
-		fn(this)
+	for _, f := range op {
+		if f != nil {
+			f(this)
+		}
 	}
 	return this
 }

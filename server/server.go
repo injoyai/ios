@@ -174,7 +174,8 @@ func (this *Server) run(ctx context.Context) error {
 			defer func() { this.Logger.Infof("[%s] 客户端断开连接...\n", cli.Key()) }()
 
 			//如果客户端返回错误或者被关闭,则退出
-			if err = cli.DoConnected(cli); err != nil || cli.Closed() {
+			cli.DoConnected(cli)
+			if cli.Closed() {
 				return
 			}
 
