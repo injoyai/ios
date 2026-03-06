@@ -172,7 +172,7 @@ func (this *Server) run(ctx context.Context) error {
 			//触发服务端连接/断开事件
 			this.Logger.Infof("[%s] 新的客户端连接...\n", cli.Key())
 
-			//如果客户端返回错误或者被关闭,则退出
+			//触发连接事件,如果客户端被关闭,则退出
 			cli.DoConnected(cli)
 			if cli.Closed() {
 				return
