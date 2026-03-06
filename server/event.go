@@ -40,6 +40,12 @@ func WithClientOptions(op ...client.Option) Option {
 	}
 }
 
+func WithClientConnected(op ...client.Option) Option {
+	return func(s *Server) {
+		s.OnClientConnected(op...)
+	}
+}
+
 func WithLoggerLevel(level int) Option {
 	return func(s *Server) {
 		s.Logger.SetLevel(level)
