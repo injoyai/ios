@@ -49,6 +49,10 @@ func (this *event) OnReconnect(f func(i int) (time.Duration, error)) {
 	}
 }
 
+func (this *event) OnReconnectInterval(t time.Duration) {
+	this.OnReconnect(func(i int) (time.Duration, error) { return t, nil })
+}
+
 func (this *event) OnDisconnect(f func(c *Client, err error)) {
 	if f != nil {
 		this.onDisconnect = append(this.onDisconnect, f)
