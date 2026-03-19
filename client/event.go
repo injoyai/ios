@@ -77,6 +77,18 @@ func (this *event) OnWriteWith(f func(bs []byte) ([]byte, error)) {
 	}
 }
 
+func (this *event) OnWriteWithPrefix(prefix []byte) {
+	this.OnWriteWith(func(bs []byte) ([]byte, error) {
+		return append(prefix, bs...), nil
+	})
+}
+
+func (this *event) OnWriteWithSuffix(suffix []byte) {
+	this.OnWriteWith(func(bs []byte) ([]byte, error) {
+		return append(bs, suffix...), nil
+	})
+}
+
 func (this *event) OnWrite(f func(f func() error) error) {
 	if f != nil {
 		this.onWrite = f
