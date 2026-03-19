@@ -65,6 +65,12 @@ func (this *event) OnReadFrom(f ios.FReadFunc) {
 	}
 }
 
+func (this *event) OnReadWithSplit(delim byte) {
+	this.OnReadFrom(func(r *bufio.Reader) ([]byte, error) {
+		return r.ReadBytes(delim)
+	})
+}
+
 func (this *event) OnDealMessage(f func(c *Client, msg ios.Acker)) {
 	if f != nil {
 		this.onDealMessage = append(this.onDealMessage, f)
