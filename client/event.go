@@ -114,6 +114,15 @@ func (this *event) OnDealErr(f func(c *Client, err error) error) {
 	this.onDealErr = f
 }
 
+func (this *event) WithFrameLineBreak() {
+	this.OnReadFrom(func(r *bufio.Reader) ([]byte, error) {
+		return r.ReadBytes('\n')
+	})
+	this.OnWriteWith(func(bs []byte) ([]byte, error) {
+		return append(bs, '\n'), nil
+	})
+}
+
 func (this *event) WithFrame(f Frame) {
 	this.OnReadFrom(f.ReadFrom)
 	this.OnWriteWith(f.WriteWith)
