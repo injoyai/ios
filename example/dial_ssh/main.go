@@ -9,7 +9,6 @@ import (
 
 	"github.com/injoyai/ios/v2"
 	"github.com/injoyai/ios/v2/client"
-	"github.com/injoyai/ios/v2/client/redial"
 	"github.com/injoyai/ios/v2/module/common"
 	"github.com/injoyai/ios/v2/module/ssh"
 	"github.com/injoyai/logs"
@@ -17,12 +16,12 @@ import (
 
 func main() {
 
-	c := redial.SSH(&ssh.Config{
+	c := client.Redial(ssh.NewDial(&ssh.Config{
 		Address:  "192.168.10.9:22",
 		User:     "root",
 		Password: "root",
 		Timeout:  time.Second * 5,
-	})
+	}))
 
 	go func() {
 		s := bufio.NewScanner(os.Stdin)
