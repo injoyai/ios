@@ -6,19 +6,13 @@ import (
 	"github.com/injoyai/ios/v2"
 	"github.com/injoyai/ios/v2/client"
 	"github.com/injoyai/ios/v2/module/memory"
-	"github.com/injoyai/ios/v2/module/serial"
-	"github.com/injoyai/ios/v2/module/ssh"
 	"github.com/injoyai/ios/v2/module/tcp"
 	"github.com/injoyai/ios/v2/module/unix"
 	"github.com/injoyai/ios/v2/module/websocket"
 )
 
-func Redial(dial ios.DialFunc, op ...client.Option) *client.Client {
-	return client.Redial(dial, op...)
-}
-
 func Run(dial ios.DialFunc, op ...client.Option) error {
-	return Redial(dial, op...).Run(context.Background())
+	return client.Redial(dial, op...).Run(context.Background())
 }
 
 func TCP(addr string, op ...client.Option) *client.Client {
@@ -37,14 +31,6 @@ func RunUnix(addr string, op ...client.Option) error {
 	return Unix(addr, op...).Run(context.Background())
 }
 
-func SSH(cfg *ssh.Config, op ...client.Option) *client.Client {
-	return client.Redial(ssh.NewDial(cfg), op...)
-}
-
-func RunSSH(cfg *ssh.Config, op ...client.Option) error {
-	return SSH(cfg, op...).Run(context.Background())
-}
-
 func Websocket(addr string, op ...client.Option) *client.Client {
 	return client.Redial(websocket.NewDial(addr), func(c *client.Client) {
 		c.OnWrite(client.NewWriteSafe())
@@ -54,14 +40,6 @@ func Websocket(addr string, op ...client.Option) *client.Client {
 
 func RunWebsocket(addr string, op ...client.Option) error {
 	return Websocket(addr, op...).Run(context.Background())
-}
-
-func Serial(cfg *serial.Config, op ...client.Option) *client.Client {
-	return client.Redial(serial.NewDial(cfg), op...)
-}
-
-func RunSerial(cfg *serial.Config, op ...client.Option) error {
-	return Serial(cfg, op...).Run(context.Background())
 }
 
 func Memory(key string, op ...client.Option) *client.Client {

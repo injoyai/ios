@@ -6,28 +6,13 @@ import (
 	"github.com/injoyai/ios/v2"
 	"github.com/injoyai/ios/v2/client"
 	"github.com/injoyai/ios/v2/module/memory"
-	"github.com/injoyai/ios/v2/module/serial"
-	"github.com/injoyai/ios/v2/module/ssh"
 	"github.com/injoyai/ios/v2/module/tcp"
 	"github.com/injoyai/ios/v2/module/unix"
 	"github.com/injoyai/ios/v2/module/websocket"
 )
 
-var (
-	WithMemory    = memory.NewDial
-	WithSerial    = serial.NewDial
-	WithSSH       = ssh.NewDial
-	WithTCP       = tcp.NewDial
-	WithUnix      = unix.NewDial
-	WithWebsocket = websocket.NewDial
-)
-
-func Dial(dial ios.DialFunc, op ...client.Option) (*client.Client, error) {
-	return client.Dial(dial, op...)
-}
-
 func Run(dial ios.DialFunc, op ...client.Option) error {
-	c, err := Dial(dial, op...)
+	c, err := client.Dial(dial, op...)
 	if err != nil {
 		return err
 	}
@@ -50,14 +35,6 @@ func RunUnix(addr string, op ...client.Option) error {
 	return Run(unix.NewDial(addr), op...)
 }
 
-func SSH(cfg *ssh.Config, op ...client.Option) (*client.Client, error) {
-	return client.Dial(ssh.NewDial(cfg), op...)
-}
-
-func RunSSH(cfg *ssh.Config, op ...client.Option) error {
-	return Run(ssh.NewDial(cfg), op...)
-}
-
 func Websocket(addr string, op ...client.Option) (*client.Client, error) {
 	return client.Dial(websocket.NewDial(addr), func(c *client.Client) {
 		c.OnWrite(client.NewWriteSafe())
@@ -70,14 +47,6 @@ func RunWebsocket(addr string, op ...client.Option) error {
 		c.OnWrite(client.NewWriteSafe())
 		c.SetOption(op...)
 	})
-}
-
-func Serial(cfg *serial.Config, op ...client.Option) (*client.Client, error) {
-	return client.Dial(serial.NewDial(cfg), op...)
-}
-
-func RunSerial(cfg *serial.Config, op ...client.Option) error {
-	return Run(serial.NewDial(cfg), op...)
 }
 
 func Memory(key string, op ...client.Option) (*client.Client, error) {
