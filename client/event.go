@@ -66,10 +66,12 @@ func (this *event) OnReadFrom(f ios.FReadFunc) {
 	}
 }
 
-func (this *event) OnReadWithSplit(delim byte) {
+func (this *event) OnReadWithSplit(delim byte, trim ...bool) {
 	this.OnReadFrom(func(r *bufio.Reader) ([]byte, error) {
 		line, err := r.ReadBytes(delim)
-		line = bytes.TrimRight(line, string(delim))
+		if len(trim) > 0 && trim[0] {
+			line = bytes.Trim(line, string(delim))
+		}
 		return line, err
 	})
 }
@@ -117,8 +119,8 @@ func (this *event) OnDealErr(f func(c *Client, err error) error) {
 	this.onDealErr = f
 }
 
-func (this *event) WithFrameSplit(delim byte) {
-	this.OnReadWithSplit(delim)
+func (this *event) WithFrameSplit(delim byte, trim ...bool) {
+	this.OnReadWithSplit(delim, trim...)
 	this.OnWriteWithSuffix([]byte{delim})
 }
 
