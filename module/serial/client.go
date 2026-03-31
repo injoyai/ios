@@ -7,7 +7,11 @@ import (
 	"github.com/injoyai/ios/v2"
 )
 
-type Config = serial.Config
+type (
+	Config      = serial.Config
+	RS485Config = serial.RS485Config
+	Client      = serial.Port
+)
 
 func NewDial(cfg *Config) ios.DialFunc {
 	return func(ctx context.Context) (ios.ReadWriteCloser, string, error) {
@@ -16,6 +20,10 @@ func NewDial(cfg *Config) ios.DialFunc {
 	}
 }
 
-func Dial(cfg *Config) (serial.Port, error) {
+func Dial(cfg *Config) (Client, error) {
+	return serial.Open(cfg)
+}
+
+func Open(cfg *Config) (Client, error) {
 	return serial.Open(cfg)
 }
