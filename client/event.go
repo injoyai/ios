@@ -2,6 +2,7 @@ package client
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 	"math"
 	"sync"
@@ -67,7 +68,9 @@ func (this *event) OnReadFrom(f ios.FReadFunc) {
 
 func (this *event) OnReadWithSplit(delim byte) {
 	this.OnReadFrom(func(r *bufio.Reader) ([]byte, error) {
-		return r.ReadBytes(delim)
+		line, err := r.ReadBytes(delim)
+		line = bytes.TrimRight(line, string(delim))
+		return line, err
 	})
 }
 
@@ -114,13 +117,9 @@ func (this *event) OnDealErr(f func(c *Client, err error) error) {
 	this.onDealErr = f
 }
 
-func (this *event) WithFrameLineBreak() {
-	this.OnReadFrom(func(r *bufio.Reader) ([]byte, error) {
-		return r.ReadBytes('\n')
-	})
-	this.OnWriteWith(func(bs []byte) ([]byte, error) {
-		return append(bs, '\n'), nil
-	})
+func (this *event) WithFrameSplit(delim byte) {
+	this.OnReadWithSplit(delim)
+	this.OnWriteWithSuffix([]byte{delim})
 }
 
 func (this *event) WithFrame(f Frame) {
