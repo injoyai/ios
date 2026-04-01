@@ -1,8 +1,6 @@
 package redial
 
 import (
-	"context"
-
 	"github.com/injoyai/ios/v2"
 	"github.com/injoyai/ios/v2/client"
 	"github.com/injoyai/ios/v2/module/memory"
@@ -11,41 +9,45 @@ import (
 	"github.com/injoyai/ios/v2/module/websocket"
 )
 
+func With(dial ios.DialFunc, op ...client.Option) *client.Client {
+	return client.Redial(dial, op...)
+}
+
 func Run(dial ios.DialFunc, op ...client.Option) error {
-	return client.Redial(dial, op...).Run(context.Background())
+	return With(dial, op...).Run()
 }
 
 func TCP(addr string, op ...client.Option) *client.Client {
-	return client.Redial(tcp.NewDial(addr), op...)
+	return With(tcp.NewDial(addr), op...)
 }
 
 func RunTCP(addr string, op ...client.Option) error {
-	return TCP(addr, op...).Run(context.Background())
+	return TCP(addr, op...).Run()
 }
 
 func Unix(addr string, op ...client.Option) *client.Client {
-	return client.Redial(unix.NewDial(addr), op...)
+	return With(unix.NewDial(addr), op...)
 }
 
 func RunUnix(addr string, op ...client.Option) error {
-	return Unix(addr, op...).Run(context.Background())
+	return Unix(addr, op...).Run()
 }
 
 func Websocket(addr string, op ...client.Option) *client.Client {
-	return client.Redial(websocket.NewDial(addr), func(c *client.Client) {
+	return With(websocket.NewDial(addr), func(c *client.Client) {
 		c.OnWrite(client.NewWriteSafe())
 		c.SetOption(op...)
 	})
 }
 
 func RunWebsocket(addr string, op ...client.Option) error {
-	return Websocket(addr, op...).Run(context.Background())
+	return Websocket(addr, op...).Run()
 }
 
 func Memory(key string, op ...client.Option) *client.Client {
-	return client.Redial(memory.NewDial(key), op...)
+	return With(memory.NewDial(key), op...)
 }
 
 func RunMemory(key string, op ...client.Option) error {
-	return Memory(key, op...).Run(context.Background())
+	return Memory(key, op...).Run()
 }

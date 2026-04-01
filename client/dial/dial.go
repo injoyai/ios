@@ -1,8 +1,6 @@
 package dial
 
 import (
-	"context"
-
 	"github.com/injoyai/ios/v2"
 	"github.com/injoyai/ios/v2/client"
 	"github.com/injoyai/ios/v2/module/memory"
@@ -11,16 +9,20 @@ import (
 	"github.com/injoyai/ios/v2/module/websocket"
 )
 
+func With(dial ios.DialFunc, op ...client.Option) (*client.Client, error) {
+	return client.Dial(dial, op...)
+}
+
 func Run(dial ios.DialFunc, op ...client.Option) error {
-	c, err := client.Dial(dial, op...)
+	c, err := With(dial, op...)
 	if err != nil {
 		return err
 	}
-	return c.Run(context.Background())
+	return c.Run()
 }
 
 func TCP(addr string, op ...client.Option) (*client.Client, error) {
-	return client.Dial(tcp.NewDial(addr), op...)
+	return With(tcp.NewDial(addr), op...)
 }
 
 func RunTCP(addr string, op ...client.Option) error {
@@ -28,7 +30,7 @@ func RunTCP(addr string, op ...client.Option) error {
 }
 
 func Unix(addr string, op ...client.Option) (*client.Client, error) {
-	return client.Dial(unix.NewDial(addr), op...)
+	return With(unix.NewDial(addr), op...)
 }
 
 func RunUnix(addr string, op ...client.Option) error {
@@ -36,7 +38,7 @@ func RunUnix(addr string, op ...client.Option) error {
 }
 
 func Websocket(addr string, op ...client.Option) (*client.Client, error) {
-	return client.Dial(websocket.NewDial(addr), func(c *client.Client) {
+	return With(websocket.NewDial(addr), func(c *client.Client) {
 		c.OnWrite(client.NewWriteSafe())
 		c.SetOption(op...)
 	})
@@ -50,7 +52,7 @@ func RunWebsocket(addr string, op ...client.Option) error {
 }
 
 func Memory(key string, op ...client.Option) (*client.Client, error) {
-	return client.Dial(memory.NewDial(key), op...)
+	return With(memory.NewDial(key), op...)
 }
 
 func RunMemory(key string, op ...client.Option) error {
