@@ -5,6 +5,7 @@ import (
 	"github.com/injoyai/ios/v2/client"
 	"github.com/injoyai/ios/v2/module/memory"
 	"github.com/injoyai/ios/v2/module/tcp"
+	"github.com/injoyai/ios/v2/module/udp"
 	"github.com/injoyai/ios/v2/module/unix"
 	"github.com/injoyai/ios/v2/module/websocket"
 )
@@ -23,6 +24,14 @@ func TCP(addr string, op ...client.Option) *client.Client {
 
 func RunTCP(addr string, op ...client.Option) error {
 	return TCP(addr, op...).Run()
+}
+
+func UDP(addr string, op ...client.Option) *client.Client {
+	return With(udp.NewDial(addr), op...)
+}
+
+func RunUDP(addr string, op ...client.Option) error {
+	return UDP(addr, op...).Run()
 }
 
 func Unix(addr string, op ...client.Option) *client.Client {
