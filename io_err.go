@@ -3,6 +3,7 @@ package ios
 import "errors"
 
 var (
+	ErrClosed             = errors.New("已关闭")
 	ErrHandClose          = errors.New("主动关闭")
 	ErrRemoteClose        = errors.New("远程端主动关闭连接")
 	ErrRemoteCloseUnusual = errors.New("远程端意外关闭连接")
