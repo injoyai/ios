@@ -1,19 +1,20 @@
 package udp
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/injoyai/base/maps"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios/v2"
+	"github.com/injoyai/ios/v2/module/common"
 )
 
 var _ ios.Listener = (*Server)(nil)
 
-func NewListen(port int) func() (ios.Listener, error) {
+func NewListen[T common.Address](addr T) func() (ios.Listener, error) {
+	address := common.ToAddress(addr)
 	return func() (ios.Listener, error) {
-		addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf(":%d", port))
+		addr, err := net.ResolveUDPAddr("udp", address)
 		if err != nil {
 			return nil, err
 		}

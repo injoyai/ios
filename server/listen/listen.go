@@ -1,6 +1,8 @@
 package listen
 
 import (
+	"github.com/injoyai/ios/v2"
+	"github.com/injoyai/ios/v2/module/common"
 	"github.com/injoyai/ios/v2/module/memory"
 	"github.com/injoyai/ios/v2/module/tcp"
 	"github.com/injoyai/ios/v2/module/udp"
@@ -9,20 +11,24 @@ import (
 	"github.com/injoyai/ios/v2/server"
 )
 
-func TCP(port int, op ...server.Option) (*server.Server, error) {
-	return server.New(tcp.NewListen(port), op...)
+func Run(listen ios.ListenFunc, op ...server.Option) error {
+	return server.Run(listen, op...)
 }
 
-func RunTCP(port int, op ...server.Option) error {
-	return server.Run(tcp.NewListen(port), op...)
+func TCP[T common.Address](addr T, op ...server.Option) (*server.Server, error) {
+	return server.New(tcp.NewListen(addr), op...)
 }
 
-func UDP(port int, op ...server.Option) (*server.Server, error) {
-	return server.New(udp.NewListen(port), op...)
+func RunTCP[T common.Address](addr T, op ...server.Option) error {
+	return server.Run(tcp.NewListen(addr), op...)
 }
 
-func RunUDP(port int, op ...server.Option) error {
-	return server.Run(udp.NewListen(port), op...)
+func UDP[T common.Address](addr T, op ...server.Option) (*server.Server, error) {
+	return server.New(udp.NewListen(addr), op...)
+}
+
+func RunUDP[T common.Address](addr T, op ...server.Option) error {
+	return server.Run(udp.NewListen(addr), op...)
 }
 
 func Unix(filename string, op ...server.Option) (*server.Server, error) {
@@ -41,10 +47,10 @@ func RunMemory(key string, op ...server.Option) error {
 	return server.Run(memory.NewListen(key), op...)
 }
 
-func Websocket(port int, op ...server.Option) (*server.Server, error) {
-	return server.New(websocket.NewListen(port), op...)
+func Websocket[T common.Address](addr T, op ...server.Option) (*server.Server, error) {
+	return server.New(websocket.NewListen(addr), op...)
 }
 
-func RunWebsocket(port int, op ...server.Option) error {
-	return server.Run(websocket.NewListen(port), op...)
+func RunWebsocket[T common.Address](addr T, op ...server.Option) error {
+	return server.Run(websocket.NewListen(addr), op...)
 }

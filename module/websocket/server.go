@@ -2,17 +2,20 @@ package websocket
 
 import (
 	"errors"
-	"fmt"
+
 	"github.com/gorilla/websocket"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios/v2"
+	"github.com/injoyai/ios/v2/module/common"
+
 	"net"
 	"net/http"
 )
 
-func NewListen(port int) func() (ios.Listener, error) {
+func NewListen[T common.Address](addr T) func() (ios.Listener, error) {
+	address := common.ToAddress(addr)
 	return func() (ios.Listener, error) {
-		l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		l, err := net.Listen("tcp", address)
 		if err != nil {
 			return nil, err
 		}

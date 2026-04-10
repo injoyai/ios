@@ -1,15 +1,16 @@
 package tcp
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/injoyai/ios/v2"
+	"github.com/injoyai/ios/v2/module/common"
 )
 
 var _ ios.Listener = (*Server)(nil)
 
-func NewListen(port int) func() (ios.Listener, error) {
+func NewListen[T common.Address](addr T) func() (ios.Listener, error) {
+	address := common.ToAddress(addr)
 	return func() (ios.Listener, error) {
 		/*
 			开启端口复用方式,windows:
@@ -33,7 +34,7 @@ func NewListen(port int) func() (ios.Listener, error) {
 			        },
 			    }
 		*/
-		listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		listener, err := net.Listen("tcp", address)
 		if err != nil {
 			return nil, err
 		}
