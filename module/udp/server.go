@@ -99,7 +99,7 @@ func (this *Server) run() error {
 	}
 }
 
-var _ ios.ReadWriteCloser = (*client)(nil)
+var _ ios.MReadWriteCloser = (*client)(nil)
 
 func newClient(key string, conn *net.UDPConn, addr *net.UDPAddr, onClose func()) *client {
 	c := &client{
