@@ -9,6 +9,7 @@ import (
 
 	"github.com/injoyai/base/maps/timeout"
 	"github.com/injoyai/base/safe"
+	"github.com/injoyai/conv"
 	"github.com/injoyai/ios/v2"
 	"github.com/injoyai/ios/v2/client"
 	"github.com/injoyai/ios/v2/module/common"
@@ -39,12 +40,11 @@ func New(listen ios.ListenFunc, op ...Option) (*Server, error) {
 		Runner2:  safe.NewRunner2(nil),
 		Logger:   common.NewLogger(),
 		listener: listener,
-		timeout: timeout.New().SetDealFunc(func(key interface{}) error {
-			return key.(*client.Client).CloseWithErr(ios.ErrWithTimeout)
-		}),
-		client: make(map[string]*client.Client),
+		timeout:  timeout.NewGeneric[*client.Client](),
+		client:   make(map[string]*client.Client),
 	}
 	s.Runner2.SetFunc(s.run)
+	s.timeout.SetDealFunc(func(key *client.Client) error { return key.CloseWithErr(ios.ErrWithTimeout) })
 	s.timeout.SetTimeout(time.Minute * 3) //3分钟超时(3-检查间隔会超时)
 	s.timeout.SetInterval(time.Minute)    //1分钟检查一次
 	s.Closer.SetCloseFunc(func(err error) error {
@@ -74,11 +74,18 @@ type Server struct {
 	*safe.Runner2               //runner
 	Logger        common.Logger //日志
 
-	listener ios.Listener     //listene
-	timeout  *timeout.Timeout //超时机制
+	listener ios.Listener                     //listene
+	timeout  *timeout.Generic[*client.Client] //超时机制
 
 	client   map[string]*client.Client //客户端
 	clientMu sync.RWMutex              //锁
+}
+
+// SetTimeout 设置超时
+func (this *Server) SetTimeout(timeout time.Duration, interval ...time.Duration) {
+	_interval := conv.Default(time.Minute, interval...)
+	this.timeout.SetTimeout(timeout)
+	this.timeout.SetInterval(_interval)
 }
 
 // Timer 定时器
@@ -155,6 +162,7 @@ func (this *Server) CloseAllClient(err error) {
 }
 
 func (this *Server) run(ctx context.Context) error {
+	go this.timeout.Run(ctx)
 	for {
 		c, k, err := this.listener.Accept()
 		if err != nil {
@@ -190,9 +198,12 @@ func (this *Server) run(ctx context.Context) error {
 
 			//保持写超时状态
 			cli.OnWriteWith(func(bs []byte) ([]byte, error) {
-				this.timeout.Keep(c)
+				this.timeout.Keep(cli)
 				return bs, nil
 			})
+
+			//加载超时状态
+			this.timeout.Keep(cli)
 
 			//把客户端设置到缓存
 			this.clientMu.Lock()
