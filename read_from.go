@@ -10,7 +10,7 @@ func NewFRead(buf []byte) FReadFunc {
 	if buf == nil {
 		buf = make([]byte, DefaultBufferSize)
 	}
-	return Buffer(buf).ReadBuffer
+	return Bytes(buf).ReadBuffer
 }
 
 // NewFReadLeast 新建读取函数,至少读取设置的字节

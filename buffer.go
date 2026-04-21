@@ -9,9 +9,9 @@ const (
 	DefaultBufferSize = 1024
 )
 
-type Buffer []byte
+type Bytes []byte
 
-func (this Buffer) ReadFrom(r io.Reader) ([]byte, error) {
+func (this Bytes) ReadFrom(r io.Reader) ([]byte, error) {
 	n, err := r.Read(this)
 	if err != nil {
 		return nil, err
@@ -19,7 +19,7 @@ func (this Buffer) ReadFrom(r io.Reader) ([]byte, error) {
 	return this[:n], nil
 }
 
-func (this Buffer) ReadBuffer(r *bufio.Reader) ([]byte, error) {
+func (this Bytes) ReadBuffer(r *bufio.Reader) ([]byte, error) {
 	n, err := r.Read(this)
 	if err != nil {
 		return nil, err
@@ -27,22 +27,22 @@ func (this Buffer) ReadBuffer(r *bufio.Reader) ([]byte, error) {
 	return this[:n], nil
 }
 
-func NewBufferReader(r io.Reader, buf []byte) *BufferReader {
+func NewBuffer(r io.Reader, buf []byte) *Buffer {
 	if buf == nil {
 		buf = make([]byte, DefaultBufferSize)
 	}
-	return &BufferReader{
+	return &Buffer{
 		Reader: r,
 		buf:    buf,
 	}
 }
 
 /*
-BufferReader
+Buffer
 缓存读取,用来替代bufio.Reader,原因是不可控
 这个能自定义buf,方便内存复用
 */
-type BufferReader struct {
+type Buffer struct {
 	// 原始Reader,注意使用安全
 	io.Reader
 
@@ -54,28 +54,26 @@ type BufferReader struct {
 	i, j int
 }
 
-func (this *BufferReader) Cap() int {
+func (this *Buffer) Cap() int {
 	return cap(this.buf)
 }
 
 // Len 返回已缓存数据长度
-func (this *BufferReader) Len() int {
+func (this *Buffer) Len() int {
 	return this.j - this.i
 }
 
-func (this *BufferReader) Reset(r io.Reader) {
+func (this *Buffer) Reset(r io.Reader) {
 	this.Reader = r
 	this.i = 0
 	this.j = 0
 }
 
-func (this *BufferReader) Clear() {
-	this.Reader = nil
-	this.i = 0
-	this.j = 0
+func (this *Buffer) Clear() {
+	this.Reset(nil)
 }
 
-func (this *BufferReader) Read(p []byte) (int, error) {
+func (this *Buffer) Read(p []byte) (int, error) {
 
 	if this.j <= this.i {
 		//从底层IO读取数据到缓存

@@ -11,7 +11,7 @@ func NewAllReader(r Reader, f FReader) *AllRead {
 		r = v.Reader
 	}
 	if f == nil {
-		f = Buffer(make([]byte, DefaultBufferSize))
+		f = Bytes(make([]byte, DefaultBufferSize))
 	}
 	return &AllRead{
 		Reader:     r,
