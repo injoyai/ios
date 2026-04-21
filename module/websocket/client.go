@@ -8,7 +8,7 @@ import (
 	"github.com/injoyai/ios/v2"
 )
 
-var _ ios.MReadWriteCloser = &Client{}
+var _ ios.BReadWriteCloser = &Client{}
 
 func NewDial(url string) ios.DialFunc {
 	return func(ctx context.Context) (ios.ReadWriteCloser, string, error) {
@@ -43,7 +43,7 @@ type Client struct {
 	Response *http.Response
 }
 
-func (this *Client) ReadMessage() ([]byte, error) {
+func (this *Client) ReadBytes() ([]byte, error) {
 	_, bs, err := this.Conn.ReadMessage()
 	return bs, err
 }

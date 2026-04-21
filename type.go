@@ -11,7 +11,7 @@ type (
 	IO = AllReadWriteCloser
 
 	Reader interface {
-		//Reader为这三种类型 [io.Reader|AReader|MReader] 如何用泛型实现?
+		//Reader为这三种类型 [io.Reader|AReader|BReader] 如何用泛型实现?
 	}
 
 	ReadCloser interface {
@@ -50,37 +50,37 @@ type (
 		io.Closer
 	}
 
-	// MReader 使用更方便,就是分包后的IO
-	MReader interface {
-		ReadMessage() ([]byte, error)
+	// BReader 使用更方便,就是分包后的IO
+	BReader interface {
+		ReadBytes() ([]byte, error)
 	}
 
-	MReadWriter interface {
-		MReader
+	BReadWriter interface {
+		BReader
 		io.Writer
 	}
 
-	MReadCloser interface {
-		MReader
+	BReadCloser interface {
+		BReader
 		io.Closer
 	}
 
-	MReadWriteCloser interface {
-		MReader
+	BReadWriteCloser interface {
+		BReader
 		io.Writer
 		io.Closer
 	}
 
 	AllReader interface {
-		io.Reader
-		MReader
 		AReader
+		BReader
+		io.Reader
 	}
 
 	AllReadWriteCloser interface {
-		io.ReadWriteCloser
-		MReader
 		AReader
+		BReader
+		io.ReadWriteCloser
 	}
 
 	// FReader FromReader 从io.Reader中读取数据
@@ -144,9 +144,9 @@ type AReadFunc func() (Acker, error)
 
 func (this AReadFunc) ReadAck() (Acker, error) { return this() }
 
-type MReadFunc func() ([]byte, error)
+type BReadFunc func() ([]byte, error)
 
-func (this MReadFunc) ReadMessage() ([]byte, error) { return this() }
+func (this BReadFunc) ReadBytes() ([]byte, error) { return this() }
 
 type FReadFunc func(r *bufio.Reader) ([]byte, error)
 

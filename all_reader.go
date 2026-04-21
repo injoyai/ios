@@ -22,11 +22,11 @@ func NewAllReader(r Reader, f FReader) *AllRead {
 
 // AllRead ios.Reader转io.Reader
 type AllRead struct {
-	//只能是[Reader|MReader|AReader]类型
+	//只能是[Reader|BReader|AReader]类型
 	Reader
 
 	//用来缓存读取到的数据,方便下次使用
-	//例如MReader,一次读取100字节,但是用户只取走40字节,剩下60字节缓存用于下次
+	//例如BReader,一次读取100字节,但是用户只取走40字节,剩下60字节缓存用于下次
 	//不使用sync.Pool,因为大小不可知,防止被扩容造成的内存泄漏
 	cache []byte
 
@@ -36,9 +36,9 @@ type AllRead struct {
 
 func (this *AllRead) Read(p []byte) (n int, err error) {
 	switch r := this.Reader.(type) {
-	case MReader:
+	case BReader:
 		if len(this.cache) == 0 {
-			this.cache, err = r.ReadMessage()
+			this.cache, err = r.ReadBytes()
 			if err != nil {
 				return
 			}
@@ -74,10 +74,10 @@ func (this *AllRead) Read(p []byte) (n int, err error) {
 
 }
 
-func (this *AllRead) ReadMessage() (bs []byte, err error) {
+func (this *AllRead) ReadBytes() (bs []byte, err error) {
 	switch r := this.Reader.(type) {
-	case MReader:
-		return r.ReadMessage()
+	case BReader:
+		return r.ReadBytes()
 
 	case AReader:
 		a, err := r.ReadAck()
@@ -95,8 +95,8 @@ func (this *AllRead) ReadMessage() (bs []byte, err error) {
 
 func (this *AllRead) ReadAck() (Acker, error) {
 	switch r := this.Reader.(type) {
-	case MReader:
-		bs, err := r.ReadMessage()
+	case BReader:
+		bs, err := r.ReadBytes()
 		if err != nil {
 			return nil, err
 		}

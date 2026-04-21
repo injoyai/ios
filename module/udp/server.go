@@ -100,7 +100,7 @@ func (this *Server) run() error {
 	}
 }
 
-var _ ios.MReadWriteCloser = (*client)(nil)
+var _ ios.BReadWriteCloser = (*client)(nil)
 
 func newClient(key string, conn *net.UDPConn, addr *net.UDPAddr, onClose func()) *client {
 	c := &client{
@@ -143,7 +143,7 @@ func (this *client) Write(p []byte) (int, error) {
 	return this.conn.WriteToUDP(p, this.remoteAddr)
 }
 
-func (this *client) ReadMessage() ([]byte, error) {
+func (this *client) ReadBytes() ([]byte, error) {
 	select {
 	case <-this.Done():
 		return nil, this.Err()

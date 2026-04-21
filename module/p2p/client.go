@@ -145,7 +145,7 @@ func Dial(relay *client.Client, target string) (*Client, error) {
 	return p, nil
 }
 
-var _ ios.MReadWriteCloser = &Client{}
+var _ ios.BReadWriteCloser = &Client{}
 
 func newClient(key string, channel *webrtc.DataChannel) *Client {
 	return &Client{
@@ -165,7 +165,7 @@ type Client struct {
 	*safe.Closer
 }
 
-func (this *Client) ReadMessage() ([]byte, error) {
+func (this *Client) ReadBytes() ([]byte, error) {
 	if this.Closed() {
 		return nil, this.Err()
 	}

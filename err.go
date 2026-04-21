@@ -22,5 +22,5 @@ var (
 	ErrMaxConnect         = errors.New("到达最大连接数")
 	ErrUseReadMessage     = errors.New("不支持,请使用ReadMessage")
 	ErrUseReadAck         = errors.New("不支持,请使用ReadAck")
-	ErrUnknownReader      = errors.New("未实现[io.Reader|ios.MReader|ios.AReader]")
+	ErrUnknownReader      = errors.New("未实现[io.Reader|ios.AReader|ios.BReader]")
 )

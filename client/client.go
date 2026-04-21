@@ -167,9 +167,9 @@ func (this *Client) SetReadWriteCloser(key string, r ios.ReadWriteCloser) {
 			return ios.Ack(bs), err
 		})
 
-	case ios.MReader:
+	case ios.BReader:
 		this.AReader = ios.AReadFunc(func() (ios.Acker, error) {
-			bs, err := v.ReadMessage()
+			bs, err := v.ReadBytes()
 			if err != nil {
 				return nil, err
 			}
@@ -514,8 +514,8 @@ func (this *Client) _run(ctx context.Context) (redial bool, err error) {
 
 		}
 
-		//读取数据,目前支持3种类型,Reader, AReader, MReader
-		//如果是AReader,MReader,说明是分包分好的数据,则直接读取即可
+		//读取数据,目前支持3种类型,Reader, AReader, BReader
+		//如果是AReader,BReader,说明是分包分好的数据,则直接读取即可
 		//如果是Reader,则数据还处于粘包状态,需要调用时间OnReadFrom,来进行读取
 		ack, err := this.ReadAck()
 		if err != nil {
