@@ -125,13 +125,17 @@ type (
 		Accept() (ReadWriteCloser, string, error)
 		Addr() string
 	}
-)
 
-// Acker 兼容MQ等需要确认的场景
-type Acker interface {
-	Bytes() []byte
-	Ack() error
-}
+	// Acker 兼容MQ等需要确认的场景
+	Acker interface {
+		Bytes() []byte
+		Ack() error
+	}
+
+	SetReadDeadliner interface {
+		SetReadDeadline(t time.Time) error
+	}
+)
 
 //=================================Func=================================
 
@@ -171,7 +175,3 @@ func (this Ack) Bytes() []byte { return this }
 type DialFunc func(ctx context.Context) (ReadWriteCloser, string, error)
 
 type ListenFunc func() (Listener, error)
-
-type SetReadDeadliner interface {
-	SetReadDeadline(t time.Time) error
-}

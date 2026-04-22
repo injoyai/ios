@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/injoyai/conv"
 )
@@ -98,9 +99,12 @@ func (this *MoreWrite) WriteChan(c chan any) error {
 
  */
 
-func NewPlanWrite(w io.Writer, onWrite func(*Plan)) *PlanWrite {
+func NewPlanWrite(w io.Writer, onWrite func(Plan)) *PlanWrite {
 	return &PlanWrite{
-		Writer:  w,
+		Writer: w,
+		plan: &Plan{
+			Start: time.Now(),
+		},
 		onWrite: onWrite,
 	}
 }
@@ -108,35 +112,64 @@ func NewPlanWrite(w io.Writer, onWrite func(*Plan)) *PlanWrite {
 type PlanWrite struct {
 	io.Writer
 	plan    *Plan
-	once    sync.Once
-	onWrite func(*Plan)
+	onWrite func(Plan)
+	mu      sync.Mutex
 }
 
 func (this *PlanWrite) Write(p []byte) (n int, err error) {
-	this.once.Do(func() {
-		this.plan = &Plan{}
-	})
-	this.plan.Index++
-	this.plan.LastBytes = p
-	if this.onWrite != nil {
-		this.onWrite(this.plan)
+	n, err = this.Writer.Write(p)
+
+	if n > 0 {
+		this.mu.Lock()
+		this.plan.Count++
+		this.plan.Current += int64(n)
+		this.plan.Last = p
+		plan := *this.plan
+		this.mu.Unlock()
+
+		if this.onWrite != nil {
+			this.onWrite(plan)
+		}
 	}
-	return this.Writer.Write(p)
+
+	return
 }
 
 type Plan struct {
-	Index     int64  //写入次数
-	TotalSize int64  //已写入的字节大小
-	LastBytes []byte //最后的数据内容
+	Count   int64     //写入次数
+	Current int64     //已写入的字节大小
+	Last    []byte    //最后的数据内容
+	Start   time.Time //开始时间
 }
 
-func (this *Plan) SetTotal(total int64) {
-	this.TotalSize = total
-}
-
-func (this *Plan) Rate(total int64) float64 {
+func (this Plan) Percent(total int64) float64 {
 	if total == 0 {
 		return 0
 	}
-	return float64(this.TotalSize) / float64(total)
+	return float64(this.Current) / float64(total) * 100
+}
+
+func (this Plan) AvgRate() float64 {
+	sec := time.Now().Sub(this.Start).Seconds()
+	if sec <= 0 {
+		return 0
+	}
+	return float64(this.Current) / sec
+}
+
+func (this Plan) Remain(total int64) int64 {
+	r := total - this.Current
+	if r < 0 {
+		r = 0
+	}
+	return r
+}
+
+func (this Plan) ETA(total int64) time.Duration {
+	remain := this.Remain(total)
+	avgRate := this.AvgRate()
+	if avgRate <= 0 {
+		return -1
+	}
+	return time.Duration(float64(remain) * float64(time.Second) / avgRate)
 }
