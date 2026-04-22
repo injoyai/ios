@@ -11,15 +11,15 @@ const (
 
 type Bytes []byte
 
-func (this Bytes) ReadFrom(r io.Reader) ([]byte, error) {
-	n, err := r.Read(this)
-	if err != nil {
-		return nil, err
-	}
-	return this[:n], nil
+func (this Bytes) ReadFrame(r *bufio.Reader) ([]byte, error) {
+	return this.ReadReader(r)
 }
 
 func (this Bytes) ReadBuffer(r *bufio.Reader) ([]byte, error) {
+	return this.ReadReader(r)
+}
+
+func (this Bytes) ReadReader(r io.Reader) ([]byte, error) {
 	n, err := r.Read(this)
 	if err != nil {
 		return nil, err

@@ -6,12 +6,12 @@ import (
 
 var _ AllReader = (*AllRead)(nil)
 
-func NewAllReader(r Reader, f FReader) *AllRead {
+func NewAllReader(r Reader, f func(r io.Reader) ([]byte, error)) *AllRead {
 	if v, ok := r.(*AllRead); ok {
 		r = v.Reader
 	}
 	if f == nil {
-		f = Bytes(make([]byte, DefaultBufferSize))
+		f = Bytes(make([]byte, DefaultBufferSize)).ReadReader
 	}
 	return &AllRead{
 		Reader:     r,
@@ -31,7 +31,7 @@ type AllRead struct {
 	cache []byte
 
 	//当Reader是io.Reader时有效
-	fromReader FReader
+	fromReader func(r io.Reader) ([]byte, error)
 }
 
 func (this *AllRead) Read(p []byte) (n int, err error) {
@@ -85,7 +85,7 @@ func (this *AllRead) ReadBytes() (bs []byte, err error) {
 		return a.Bytes(), err
 
 	case io.Reader:
-		return this.fromReader.ReadFrom(r)
+		return this.fromReader(r)
 
 	default:
 		return nil, ErrUnknownReader
@@ -106,7 +106,7 @@ func (this *AllRead) ReadAck() (Acker, error) {
 		return r.ReadAck()
 
 	case io.Reader:
-		bs, err := this.fromReader.ReadFrom(this)
+		bs, err := this.fromReader(this)
 		if err != nil {
 			return nil, err
 		}

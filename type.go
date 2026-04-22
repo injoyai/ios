@@ -83,9 +83,9 @@ type (
 		io.ReadWriteCloser
 	}
 
-	// FReader FromReader 从io.Reader中读取数据
+	// FReader FromReader 从*bufio.Reader中读取数据
 	FReader interface {
-		ReadFrom(r io.Reader) ([]byte, error)
+		ReadFrom(r *bufio.Reader) ([]byte, error)
 	}
 
 	Base64Writer interface {

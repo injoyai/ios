@@ -36,7 +36,7 @@ func (this *Piper) IO() (IO, IO) {
 		io.Writer
 		io.Closer
 	}{
-		AllReader: NewAllReader(this.Pipe1, make(Bytes, DefaultBufferSize)),
+		AllReader: NewAllReader(this.Pipe1, make(Bytes, DefaultBufferSize).ReadReader),
 		Writer:    this.Pipe2,
 		Closer:    this,
 	}
@@ -45,7 +45,7 @@ func (this *Piper) IO() (IO, IO) {
 		io.Writer
 		io.Closer
 	}{
-		AllReader: NewAllReader(this.Pipe2, make(Bytes, DefaultBufferSize)),
+		AllReader: NewAllReader(this.Pipe2, make(Bytes, DefaultBufferSize).ReadReader),
 		Writer:    this.Pipe1,
 		Closer:    this,
 	}
