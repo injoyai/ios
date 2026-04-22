@@ -22,6 +22,11 @@ func NewFReadLeast(least int) FReadFunc {
 	}
 }
 
+// NewFReadB 新建读取函数,按B读取
+func NewFReadB(n int) FReadFunc {
+	return NewFRead(make([]byte, n))
+}
+
 // NewFReadKB 新建读取函数,按KB读取
 func NewFReadKB(n int) FReadFunc {
 	return NewFRead(make([]byte, 1024*n))
