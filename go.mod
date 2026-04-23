@@ -8,7 +8,7 @@ require (
 	github.com/fatih/color v1.19.0
 	github.com/goburrow/serial v0.1.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/injoyai/base v1.2.22
+	github.com/injoyai/base v1.2.23
 	github.com/injoyai/conv v1.2.5
 	github.com/injoyai/logs v1.0.12
 	github.com/karalabe/hid v1.0.0
