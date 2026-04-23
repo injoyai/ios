@@ -2,26 +2,24 @@ package ios
 
 import (
 	"io"
-	"time"
-
-	"github.com/injoyai/base/chans"
+	"sync"
 )
 
 // Pipe 一个双向通道
-func Pipe(cap int, timeout ...time.Duration) (IO, IO) {
-	return NewPiper(cap, timeout...).IO()
+func Pipe(cap int) (BReadWriteCloser, BReadWriteCloser) {
+	return NewPiper(cap).Pipe()
 }
 
-func NewPiper(cap int, timeout ...time.Duration) *Piper {
+func NewPiper(cap int) *Piper {
 	return &Piper{
-		Pipe1: chans.NewIO(cap, timeout...),
-		Pipe2: chans.NewIO(cap, timeout...),
+		Pipe1: newChan(cap),
+		Pipe2: newChan(cap),
 	}
 }
 
 type Piper struct {
-	Pipe1 ReadWriteCloser
-	Pipe2 ReadWriteCloser
+	Pipe1 BReadWriteCloser
+	Pipe2 BReadWriteCloser
 }
 
 func (this *Piper) Close() error {
@@ -30,24 +28,75 @@ func (this *Piper) Close() error {
 	return nil
 }
 
-func (this *Piper) IO() (IO, IO) {
+func (this *Piper) Pipe() (BReadWriteCloser, BReadWriteCloser) {
 	i1 := struct {
-		AllReader
+		BReader
 		io.Writer
 		io.Closer
 	}{
-		AllReader: NewAllReader(this.Pipe1, make(Bytes, DefaultBufferSize).ReadReader),
-		Writer:    this.Pipe2,
-		Closer:    this,
+		BReader: this.Pipe1,
+		Writer:  this.Pipe2,
+		Closer:  this,
 	}
 	i2 := struct {
-		AllReader
+		BReader
 		io.Writer
 		io.Closer
 	}{
-		AllReader: NewAllReader(this.Pipe2, make(Bytes, DefaultBufferSize).ReadReader),
-		Writer:    this.Pipe1,
-		Closer:    this,
+		BReader: this.Pipe2,
+		Writer:  this.Pipe1,
+		Closer:  this,
 	}
 	return i1, i2
+}
+
+/*
+
+
+
+ */
+
+func newChan(cap int) *ChanIO {
+	return &ChanIO{
+		ch:        make(chan []byte, cap),
+		closeSign: make(chan struct{}),
+	}
+}
+
+type ChanIO struct {
+	ch        chan []byte
+	once      sync.Once
+	closeSign chan struct{}
+}
+
+func (c *ChanIO) Write(p []byte) (int, error) {
+	b := append([]byte(nil), p...)
+	select {
+	case <-c.closeSign:
+		return 0, io.ErrClosedPipe
+	case c.ch <- b:
+		return len(b), nil
+	}
+}
+
+func (c *ChanIO) ReadBytes() ([]byte, error) {
+	select {
+	case bs := <-c.ch:
+		return bs, nil
+	default:
+	}
+
+	select {
+	case <-c.closeSign:
+		return nil, io.EOF
+	case bs := <-c.ch:
+		return bs, nil
+	}
+}
+
+func (c *ChanIO) Close() error {
+	c.once.Do(func() {
+		close(c.closeSign)
+	})
+	return nil
 }

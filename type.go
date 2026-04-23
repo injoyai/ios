@@ -8,8 +8,6 @@ import (
 )
 
 type (
-	IO = AllReadWriteCloser
-
 	Reader interface {
 		//Reader为这三种类型 [io.Reader|AReader|BReader] 如何用泛型实现?
 	}
