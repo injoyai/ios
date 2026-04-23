@@ -139,7 +139,6 @@ type (
 
 //=================================Func=================================
 
-// ReadFunc 读取函数
 type ReadFunc func(p []byte) (int, error)
 
 func (this ReadFunc) Read(p []byte) (int, error) { return this(p) }
@@ -156,12 +155,10 @@ type FReadFunc func(r *bufio.Reader) ([]byte, error)
 
 func (this FReadFunc) ReadFrom(r *bufio.Reader) ([]byte, error) { return this(r) }
 
-// WriteFunc 写入函数
 type WriteFunc func(p []byte) (int, error)
 
 func (this WriteFunc) Write(p []byte) (int, error) { return this(p) }
 
-// CloseFunc 关闭函数
 type CloseFunc func() error
 
 func (this CloseFunc) Close() error { return this() }
