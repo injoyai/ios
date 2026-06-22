@@ -169,7 +169,9 @@ func (this *Server) CloseAllClient(err error) {
 }
 
 func (this *Server) run(ctx context.Context) error {
-	go this.timeout.Run(ctx)
+	ctxChild, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go this.timeout.Run(ctxChild)
 	for {
 		c, k, err := this.listener.Accept()
 		if err != nil {
