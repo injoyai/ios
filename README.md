@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Go Version" src="https://img.shields.io/badge/Go-1.20%2B-111111?style=flat-square&logo=go&logoColor=5cc8ff">
+  <img alt="Go Version" src="https://img.shields.io/badge/Go-1.25%2B-111111?style=flat-square&logo=go&logoColor=5cc8ff">
   <img alt="Version" src="https://img.shields.io/badge/module-v2-111111?style=flat-square&logo=go&logoColor=f4f4f4">
   <img alt="Focus" src="https://img.shields.io/badge/focus-connection%20runtime-111111?style=flat-square&logo=buffer&logoColor=c7f36b">
 </p>
