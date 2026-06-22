@@ -450,8 +450,8 @@ func (this *Client) run(ctx context.Context) error {
 		}
 
 		//运行,完善生命周期
-		ctx2, cancel := context.WithCancel(ctx)
-		redial, err := this._run(ctx2)
+		ctxChild, cancel := context.WithCancel(ctx)
+		redial, err := this._run(ctxChild)
 		cancel()
 
 		//判断是否需要重连,不重连返回错误
