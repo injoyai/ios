@@ -222,9 +222,11 @@ func (this *Server) run(ctx context.Context) error {
 			//运行客户端
 			_ = cli.Run(ctx)
 
-			//等待结束之后从缓存删除客户端
+			//等待结束之后从缓存删除客户端,仅删除当前实例对应的映射，避免误删重连后的新连接
 			this.clientMu.Lock()
-			delete(this.client, cli.Key())
+			if this.client[cli.Key()] == cli {
+				delete(this.client, cli.Key())
+			}
 			this.clientMu.Unlock()
 
 		}(ctx, k, c)
