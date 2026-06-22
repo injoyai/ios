@@ -105,7 +105,7 @@ var _ ios.BReadWriteCloser = (*client)(nil)
 func newClient(key string, conn *net.UDPConn, addr *net.UDPAddr, onClose func()) *client {
 	c := &client{
 		key:        key,
-		ch:         make(chan []byte, 10),
+		ch:         make(chan []byte, 100),
 		conn:       conn,
 		remoteAddr: addr,
 		Closer:     safe.NewCloser(),
