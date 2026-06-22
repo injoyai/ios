@@ -421,16 +421,6 @@ func (this *Client) runTimeout(ctx context.Context, active <-chan struct{}) erro
 	if this.timeout <= 0 {
 		return nil
 	}
-	reset := func() {
-		// Reset前先停止并清空可能残留的旧超时信号,避免刚续期就立即读到上一次timer.C
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
-		timer.Reset(this.timeout)
-	}
 	timer := time.NewTimer(this.timeout)
 	defer timer.Stop()
 	for {
@@ -438,7 +428,14 @@ func (this *Client) runTimeout(ctx context.Context, active <-chan struct{}) erro
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-active:
-			reset()
+			// Reset前先停止并清空可能残留的旧超时信号,避免刚续期就立即读到上一次timer.C
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			timer.Reset(this.timeout)
 		case <-timer.C:
 			this.CloseWithErr(ios.ErrReadTimeout)
 			return ios.ErrReadTimeout
