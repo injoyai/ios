@@ -417,20 +417,24 @@ func (this *Client) dealErr(err error) error {
 }
 
 // runTimeout 执行超时机制
-func (this *Client) runTimeout(ctx context.Context) error {
+func (this *Client) runTimeout(ctx context.Context, active <-chan struct{}) error {
 	if this.timeout <= 0 {
 		return nil
 	}
 	timer := time.NewTimer(this.timeout)
 	defer timer.Stop()
 	for {
-		if this.timeout <= 0 {
-			return nil
-		}
-		timer.Reset(this.timeout)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-active:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			timer.Reset(this.timeout)
 		case <-timer.C:
 			this.CloseWithErr(ios.ErrReadTimeout)
 			return ios.ErrReadTimeout
@@ -485,8 +489,10 @@ func (this *Client) _run(ctx context.Context) (redial bool, err error) {
 
 	//判断是否能设置读超时
 	deadliner, isDeadliner := this.r.(ios.SetReadDeadliner)
-	if !isDeadliner {
-		go this.runTimeout(ctx)
+	var activeCh chan struct{}
+	if !isDeadliner && this.timeout > 0 {
+		activeCh = make(chan struct{}, 1)
+		go this.runTimeout(ctx, activeCh)
 	}
 
 	for {
@@ -523,6 +529,14 @@ func (this *Client) _run(ctx context.Context) (redial bool, err error) {
 		ack, err := this.ReadAck()
 		if err != nil {
 			return false, err
+		}
+
+		//数据读取成功信号,用于重置超时时间,如果设置了超时的话
+		if activeCh != nil {
+			select {
+			case activeCh <- struct{}{}:
+			default:
+			}
 		}
 
 		//数据读取成功,更新时间等信息
