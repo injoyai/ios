@@ -81,8 +81,14 @@ func (this *AllRead) ReadBytes() (bs []byte, err error) {
 
 	case AReader:
 		a, err := r.ReadAck()
-		defer a.Ack()
-		return a.Bytes(), err
+		if err != nil {
+			return nil, err
+		}
+		if a != nil {
+			defer a.Ack()
+			return a.Bytes(), nil
+		}
+		return nil, nil
 
 	case io.Reader:
 		return this.fromReader(r)
