@@ -2,7 +2,6 @@ package ios
 
 import (
 	"bufio"
-	"bytes"
 	"io"
 )
 
@@ -57,37 +56,52 @@ func ReadByte(r io.Reader) (byte, error) {
 
 // ReadPrefix 读取Reader符合的头部,返回成功(nil),或者错误
 func ReadPrefix(r io.Reader, prefix []byte) ([]byte, error) {
-	cache := []byte(nil)
+	if len(prefix) == 0 {
+		return nil, nil
+	}
+	cache := make([]byte, 0, len(prefix))
+	failure := buildPrefixFailure(prefix)
+	matched := 0
 	b1 := make([]byte, 1)
-	for index := 0; index < len(prefix); {
+	for {
+		var b byte
 		switch v := r.(type) {
 		case io.ByteReader:
-			b, err := v.ReadByte()
+			val, err := v.ReadByte()
 			if err != nil {
 				return cache, err
 			}
-			cache = append(cache, b)
+			b = val
 		default:
 			_, err := io.ReadAtLeast(r, b1, 1)
 			if err != nil {
 				return cache, err
 			}
-			cache = append(cache, b1[0])
+			b = b1[0]
 		}
-		if cache[len(cache)-1] == prefix[index] {
-			index++
-		} else {
-			for len(cache) > 0 {
-				//only one error in this ReadPrefix ,it is EOF,and not important
-				cache2, _ := ReadPrefix(bytes.NewReader(cache[1:]), prefix)
-				if len(cache2) > 0 {
-					cache = cache2
-					break
-				}
-				cache = cache[1:]
+		cache = append(cache, b)
+		for matched > 0 && b != prefix[matched] {
+			matched = failure[matched-1]
+		}
+		if b == prefix[matched] {
+			matched++
+			if matched == len(prefix) {
+				return cache[len(cache)-len(prefix):], nil
 			}
-			index = len(cache)
 		}
 	}
-	return cache, nil
+}
+
+func buildPrefixFailure(prefix []byte) []int {
+	failure := make([]int, len(prefix))
+	for i, matched := 1, 0; i < len(prefix); i++ {
+		for matched > 0 && prefix[i] != prefix[matched] {
+			matched = failure[matched-1]
+		}
+		if prefix[i] == prefix[matched] {
+			matched++
+			failure[i] = matched
+		}
+	}
+	return failure
 }
