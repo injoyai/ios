@@ -428,6 +428,7 @@ func (this *Client) runTimeout(ctx context.Context, active <-chan struct{}) erro
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-active:
+			// Reset前先停止并清空可能残留的旧超时信号,避免刚续期就立即读到上一次timer.C
 			if !timer.Stop() {
 				select {
 				case <-timer.C:
