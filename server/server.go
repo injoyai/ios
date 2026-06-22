@@ -130,9 +130,13 @@ func (this *Server) RangeClient(f func(k string, c *client.Client) bool) {
 // Clients 遍历客户端
 func (this *Server) Clients() iter.Seq2[string, *client.Client] {
 	this.clientMu.RLock()
-	defer this.clientMu.RUnlock()
+	clients := make(map[string]*client.Client, len(this.client))
+	for k, c := range this.client {
+		clients[k] = c
+	}
+	this.clientMu.RUnlock()
 	return func(yield func(string, *client.Client) bool) {
-		for k, c := range this.client {
+		for k, c := range clients {
 			if !yield(k, c) {
 				return
 			}
