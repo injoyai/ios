@@ -230,17 +230,13 @@ func (this *Server) run(ctx context.Context) error {
 }
 
 func (this *Server) onChangeKey(c *client.Client, oldKey string) {
-	//判断是否存在老连接,存在则关闭老连接(被挤下线)
-	this.clientMu.RLock()
-	//查找这个新key是否存在实例,存在则判断2个是否是一个,不是一个则关闭老的那个
-	old, ok := this.client[c.Key()]
-	this.clientMu.RUnlock()
-	if ok && old != c {
-		old.CloseWithErr(fmt.Errorf("重复标识(%s),关闭老客户端", old.Key()))
-	}
-	//保存到缓存中
+	var old *client.Client
 	this.clientMu.Lock()
+	old = this.client[c.Key()]
 	delete(this.client, oldKey)
 	this.client[c.Key()] = c
 	this.clientMu.Unlock()
+	if old != nil && old != c {
+		old.CloseWithErr(fmt.Errorf("重复标识(%s),关闭老客户端", old.Key()))
+	}
 }
