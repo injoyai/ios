@@ -147,12 +147,15 @@ func (this *Server) Clients() iter.Seq2[string, *client.Client] {
 // CloseClient 关闭客户端
 func (this *Server) CloseClient(key string, err error) {
 	c := this.GetClient(key)
-	if c != nil {
-		c.CloseWithErr(err)
+	if c == nil {
+		return
 	}
+	c.CloseWithErr(err)
 	this.clientMu.Lock()
 	defer this.clientMu.Unlock()
-	delete(this.client, key)
+	if this.client[key] == c {
+		delete(this.client, key)
+	}
 }
 
 // CloseAllClient 关闭全部客户端
