@@ -22,7 +22,7 @@
 
 它不强调“内置了多少协议”，而强调“只要能抽象成 I/O，就能接入同一套运行模型”。
 
-`module` 里只内置了一部分常见实现，比如 `TCP / UDP / SSH / WebSocket / Serial / Bridge`，但这不是边界。
+`module` 里只内置了一部分常见实现，比如 `TCP / UDP / SSH / WebSocket / Serial`，但这不是边界。
 
 只要满足约定接口，就可以接入同一套流程：
 
