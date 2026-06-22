@@ -104,7 +104,7 @@ type Client struct {
 	//IO实例,原始数据
 	r ios.ReadWriteCloser
 
-	//基于io.Reader,带缓存的reader
+	//基于io.Reader,带缓存的reader,只记录地址,方便回收复用
 	buf *bufio.Reader
 
 	//全局自定义标识,表明客户端的身份
@@ -158,6 +158,7 @@ func (this *Client) SetReadWriteCloser(key string, r ios.ReadWriteCloser) {
 		} else {
 			buf = bufio.NewReader(v)
 		}
+		this.buf = buf
 		this.AReader = ios.AReadFunc(func() (ios.Acker, error) {
 			if this.event.onReadFrom == nil {
 				bs, err := defaultReadFrame(buf)
