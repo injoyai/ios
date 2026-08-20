@@ -4,8 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"github.com/injoyai/conv"
 	"io"
+
+	"github.com/injoyai/conv"
 )
 
 type Checker interface {

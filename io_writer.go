@@ -4,9 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/injoyai/conv"
 	"io"
 	"strings"
+
+	"github.com/injoyai/conv"
 )
 
 var _ MoreWriter = (*MoreWrite)(nil)

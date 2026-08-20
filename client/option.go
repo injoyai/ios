@@ -1,9 +1,10 @@
 package client
 
 import (
-	"github.com/injoyai/ios"
 	"io"
 	"time"
+
+	"github.com/injoyai/ios"
 )
 
 type Option func(c *Client)

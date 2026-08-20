@@ -3,9 +3,10 @@ package sse
 import (
 	"context"
 	"errors"
-	"github.com/injoyai/ios"
 	"io"
 	"net/http"
+
+	"github.com/injoyai/ios"
 )
 
 func NewDial(url string, body io.Reader) ios.DialFunc {

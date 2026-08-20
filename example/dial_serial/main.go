@@ -3,12 +3,13 @@ package main
 import (
 	"bufio"
 	"context"
+	"os"
+	"time"
+
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/client/dial"
 	"github.com/injoyai/ios/module/serial"
 	"github.com/injoyai/logs"
-	"os"
-	"time"
 )
 
 func main() {

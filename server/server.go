@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/injoyai/base/maps/timeout"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
 	"github.com/injoyai/ios/client"
 	"github.com/injoyai/ios/module/common"
-	"sync"
-	"time"
 )
 
 type Option func(s *Server)

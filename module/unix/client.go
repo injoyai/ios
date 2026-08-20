@@ -2,8 +2,9 @@ package unix
 
 import (
 	"context"
-	"github.com/injoyai/ios"
 	"net"
+
+	"github.com/injoyai/ios"
 )
 
 func NewDial(addr string) ios.DialFunc {

@@ -5,12 +5,13 @@ import (
 	"compress/gzip"
 	"encoding/hex"
 	"fmt"
-	"github.com/injoyai/base/maps"
-	"github.com/injoyai/conv"
-	"github.com/injoyai/logs"
 	"hash/crc32"
 	"io"
 	"time"
+
+	"github.com/injoyai/base/maps"
+	"github.com/injoyai/conv"
+	"github.com/injoyai/logs"
 )
 
 /*

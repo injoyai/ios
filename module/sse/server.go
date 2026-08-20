@@ -3,10 +3,11 @@ package sse
 import (
 	"errors"
 	"fmt"
-	"github.com/injoyai/base/safe"
-	"github.com/injoyai/ios"
 	"net"
 	"net/http"
+
+	"github.com/injoyai/base/safe"
+	"github.com/injoyai/ios"
 )
 
 func NewListen(port int) func() (ios.Listener, error) {

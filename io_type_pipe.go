@@ -2,18 +2,17 @@ package ios
 
 import (
 	"github.com/injoyai/base/chans"
-	"time"
 )
 
 // Pipe 一个双向通道
-func Pipe(cap int, timeout ...time.Duration) (IO, IO) {
-	return NewPiper(cap, timeout...).IO()
+func Pipe(cap int) (IO, IO) {
+	return NewPiper(cap).IO()
 }
 
-func NewPiper(cap int, timeout ...time.Duration) *Piper {
+func NewPiper(cap int) *Piper {
 	return &Piper{
-		Pipe1: chans.NewIO(cap, timeout...),
-		Pipe2: chans.NewIO(cap, timeout...),
+		Pipe1: chans.NewIO(cap),
+		Pipe2: chans.NewIO(cap),
 	}
 }
 

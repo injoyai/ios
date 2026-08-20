@@ -1,12 +1,13 @@
 package client
 
 import (
-	"github.com/injoyai/conv"
-	"github.com/injoyai/ios"
 	"io"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/injoyai/conv"
+	"github.com/injoyai/ios"
 )
 
 type Frame interface {

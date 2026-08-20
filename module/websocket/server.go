@@ -3,11 +3,12 @@ package websocket
 import (
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+
 	"github.com/gorilla/websocket"
 	"github.com/injoyai/base/safe"
 	"github.com/injoyai/ios"
-	"net"
-	"net/http"
 )
 
 func NewListen(port int) func() (ios.Listener, error) {

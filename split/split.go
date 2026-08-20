@@ -3,10 +3,11 @@ package split
 import (
 	"bytes"
 	"errors"
-	"github.com/injoyai/conv"
-	"github.com/injoyai/ios"
 	"io"
 	"regexp"
+
+	"github.com/injoyai/conv"
+	"github.com/injoyai/ios"
 )
 
 // Split 通用分包配置,适用99%的协议
