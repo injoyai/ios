@@ -99,7 +99,7 @@ func ReadFrom(r io.Reader) ([]byte, error) {
 }
 
 func WriteWith(bs []byte) ([]byte, error) {
-	if len(bs) > math.MaxUint32 {
+	if uint64(len(bs)) > math.MaxUint32 {
 		return nil, errors.New("数据长度太长")
 	}
 	f := Frame{Data: bs}
